@@ -10,7 +10,7 @@ import java.util.HashMap;
  *  TODO: It's a good idea to give a description here of what else this Class
  *  does at a high level.
  *
- *  @author TODO
+ *  @author Kevin
  */
 public class Commit implements Serializable {
     /**
@@ -62,5 +62,23 @@ public class Commit implements Serializable {
         this.trackedFiles = new HashMap<String, String>();
     }
 
+    public String getMessage() {
+        return message;
+    }
 
+    public Date getTimestamp() {
+        return timestamp;
+    }
+
+    public HashMap<String, String> getTrackedFiles() {
+        return trackedFiles;
+    }
+
+    public String getParent() {
+        return parent;
+    }
+
+    public String getParent1() {
+        return parent1;
+    }
 }

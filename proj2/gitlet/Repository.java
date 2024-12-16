@@ -1,6 +1,7 @@
 package gitlet;
 
 import java.io.File;
+import java.util.HashMap;
 import static gitlet.Utils.*;
 
 // TODO: any imports you need here
@@ -9,7 +10,7 @@ import static gitlet.Utils.*;
  *  TODO: It's a good idea to give a description here of what else this Class
  *  does at a high level.
  *
- *  @author TODO
+ *  @author Kevin
  */
 public class Repository {
     /**
@@ -24,6 +25,10 @@ public class Repository {
     public static final File CWD = new File(System.getProperty("user.dir"));
     /** The .gitlet directory. */
     public static final File GITLET_DIR = join(CWD, ".gitlet");
+    /** The commit tree. */
+    public static HashMap<String, Commit> commitTree = new HashMap<>();
+    /** Mapping of branch names to references to commits */
+    public static HashMap<String, String> branchMap = new HashMap<>();
 
     /**
      * Does required file system operations to set up for persistence
@@ -43,7 +48,7 @@ public class Repository {
 
         File stagingAreaDir = join(GITLET_DIR, "stagingArea");
         File blobsDir = join(GITLET_DIR, "blobs");
-        
+
         stagingAreaDir.mkdir();
         blobsDir.mkdir();
     }
@@ -61,8 +66,16 @@ public class Repository {
     * */
     public static void init() {
         File commits = join(GITLET_DIR, "commits");
+        File headCommit = join(GITLET_DIR, "headCommit");
+        File branches = join(GITLET_DIR, "branches");
         Commit initialCommit = new Commit("initial commit", null);
-        Utils.writeObject(commits, initialCommit);
+        String initialCommitHash = sha1(initialCommit.getMessage(), initialCommit.getTimestamp(),
+                                        initialCommit.getTrackedFiles(), initialCommit.getParent());
+        commitTree.put(initialCommitHash, initialCommit);
+        branchMap.put("master", initialCommitHash);
+        writeObject(commits, commitTree);
+        writeObject(headCommit, initialCommit);
+        writeObject(branches, branchMap);
     }
 
     /*
