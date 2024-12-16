@@ -25,6 +25,29 @@ public class Repository {
     /** The .gitlet directory. */
     public static final File GITLET_DIR = join(CWD, ".gitlet");
 
+    /**
+     * Does required file system operations to set up for persistence
+     * (creates any necessary folders or files)
+     *   .gitlet/
+     *   - stagingArea/
+     *   - commits/
+     *   - blobs/?
+     * */
+
+    public static void setUpPersistence () {
+        if (GITLET_DIR.exists()) {
+            System.out.println("A Gitlet version-control system already exists in the current directory.");
+            System.exit(0);
+        }
+        GITLET_DIR.mkdir();
+
+        File stagingAreaDir = join(GITLET_DIR, "stagingArea");
+        File blobsDir = join(GITLET_DIR, "blobs");
+        
+        stagingAreaDir.mkdir();
+        blobsDir.mkdir();
+    }
+
     /*
     * TODO: create initial commit
     *  Initial message: initial commit
@@ -37,16 +60,37 @@ public class Repository {
     *   A Gitlet version-control system already exists in the current directory.
     * */
     public static void init() {
-        if (GITLET_DIR.exists()) {
-            System.out.println("A Gitlet version-control system already exists in the current directory.");
-            System.exit(0);
-        }
-        GITLET_DIR.mkdir();
         File commits = join(GITLET_DIR, "commits");
         Commit initialCommit = new Commit("initial commit", null);
         Utils.writeObject(commits, initialCommit);
+    }
 
-
+    /*
+     * Each commit’s snapshot of files will be exactly the same as its parent commit’s snapshot of files
+     * TODO: clone parent commit
+     * TODO: After the commit command, the new commit is added as a new node in the commit tree - commit tree????
+     * TODO: staging area is cleared after a commit.
+     * TODO: The commit just made becomes the “current commit”, and the head pointer now points to it.
+     *  The previous head commit is this commit’s parent commit.
+     * TODO: Each commit is identified by its SHA-1 id, which must include the file (blob) references of its files,
+     *  parent reference, log message, and commit time
+     * TODO: A commit will only update the contents of files it is tracking that have been staged for addition at the
+     *  time of commit, in which case the commit will now include the version of the file that was staged
+     *  instead of the version it got from its parent.
+     *  A commit will save and start tracking any files that were staged for addition but weren’t tracked by its parent.
+     *  Finally, files tracked in the current commit may be untracked in the new commit as a result being
+     *  staged for removal by the rm command (below).
+     * The commit command never adds, changes, or removes files in the working directory (other than those in the .gitlet directory).
+     * The rm command will remove such files, as well as staging them for removal, so that they will be untracked
+     * after a commit.
+     * Any changes made to files after staging for addition or removal are ignored by the commit command,
+     * which only modifies the contents of the .gitlet directory.
+     * TODO: Each commit should contain the date and time it was made.
+     *  If no files have been staged, abort. Print the message No changes added to the commit.
+     *  Every commit must have a non-blank message.
+     *  If it doesn’t, print the error message Please enter a commit message.
+     */
+    public static void commit(String message) {
 
     }
 
