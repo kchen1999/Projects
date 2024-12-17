@@ -29,6 +29,8 @@ public class Repository {
     public static HashMap<String, Commit> commitTree = new HashMap<>();
     /** Mapping of branch names to references to commits */
     public static HashMap<String, String> branchMap = new HashMap<>();
+    /** The current branch */
+    public static String currentBranch;
 
     /**
      * Does required file system operations to set up for persistence
@@ -66,18 +68,29 @@ public class Repository {
     * */
     public static void init() {
         File commits = join(GITLET_DIR, "commits");
-        File headCommit = join(GITLET_DIR, "headCommit");
         File branches = join(GITLET_DIR, "branches");
+        File headCommit = join(GITLET_DIR, "headCommit");
+        File currentBranchFile = join(GITLET_DIR, "currentBranch");
         Commit initialCommit = new Commit("initial commit", null);
-        String initialCommitHash = sha1(initialCommit.getMessage(), initialCommit.getTimestamp(),
-                                        initialCommit.getTrackedFiles(), initialCommit.getParent());
+        String initialCommitHash = initialCommit.getCommitHashId();
         commitTree.put(initialCommitHash, initialCommit);
         branchMap.put("master", initialCommitHash);
+        currentBranch = "master";
         writeObject(commits, commitTree);
-        writeObject(headCommit, initialCommit);
         writeObject(branches, branchMap);
+        writeObject(headCommit, initialCommit);
+        writeObject(currentBranchFile, currentBranch);
     }
 
+    private static HashMap commitsFromFile() {
+        File inFile = join(GITLET_DIR, "commits");
+        return readObject(inFile, HashMap.class);
+    }
+
+    private static HashMap branchesFromFile() {
+        File inFile = join(GITLET_DIR, "branches");
+        return readObject(inFile, HashMap.class);
+    }
     /*
      * Each commit’s snapshot of files will be exactly the same as its parent commit’s snapshot of files
      * TODO: clone parent commit
@@ -103,8 +116,10 @@ public class Repository {
      *  Every commit must have a non-blank message.
      *  If it doesn’t, print the error message Please enter a commit message.
      */
+
     public static void commit(String message) {
 
+        Commit newCommit = new Commit(message, )
     }
 
 

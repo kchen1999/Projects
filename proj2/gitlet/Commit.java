@@ -5,6 +5,7 @@ package gitlet;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.HashMap;
+import static gitlet.Utils.*;
 
 /** Represents a gitlet commit object.
  *  TODO: It's a good idea to give a description here of what else this Class
@@ -62,23 +63,10 @@ public class Commit implements Serializable {
         this.trackedFiles = new HashMap<String, String>();
     }
 
-    public String getMessage() {
-        return message;
-    }
-
-    public Date getTimestamp() {
-        return timestamp;
-    }
-
-    public HashMap<String, String> getTrackedFiles() {
-        return trackedFiles;
-    }
-
-    public String getParent() {
-        return parent;
-    }
-
-    public String getParent1() {
-        return parent1;
+    public String getCommitHashId() {
+        if (parent1 == null) {
+            return sha1(message, timestamp, trackedFiles, parent);
+        }
+        return sha1(message, timestamp, trackedFiles, parent, parent1);
     }
 }
