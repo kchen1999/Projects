@@ -55,6 +55,21 @@ public class Repository {
         blobsDir.mkdir();
     }
 
+    private static HashMap commitsFromFile() {
+        File inFile = join(GITLET_DIR, "commits");
+        return readObject(inFile, HashMap.class);
+    }
+
+    private static HashMap branchesFromFile() {
+        File inFile = join(GITLET_DIR, "branches");
+        return readObject(inFile, HashMap.class);
+    }
+
+    private static String currentBranchFromFile() {
+        File inFile = join(GITLET_DIR, "currentBranch");
+        return readObject(inFile, String.class);
+    }
+
     /*
     * TODO: create initial commit
     *  Initial message: initial commit
@@ -69,28 +84,27 @@ public class Repository {
     public static void init() {
         File commits = join(GITLET_DIR, "commits");
         File branches = join(GITLET_DIR, "branches");
-        File headCommit = join(GITLET_DIR, "headCommit");
+        //File headCommit = join(GITLET_DIR, "headCommit");
         File currentBranchFile = join(GITLET_DIR, "currentBranch");
         Commit initialCommit = new Commit("initial commit", null);
         String initialCommitHash = initialCommit.getCommitHashId();
+
         commitTree.put(initialCommitHash, initialCommit);
         branchMap.put("master", initialCommitHash);
         currentBranch = "master";
         writeObject(commits, commitTree);
         writeObject(branches, branchMap);
-        writeObject(headCommit, initialCommit);
+        //writeObject(headCommit, initialCommitHash);
         writeObject(currentBranchFile, currentBranch);
     }
 
-    private static HashMap commitsFromFile() {
-        File inFile = join(GITLET_DIR, "commits");
-        return readObject(inFile, HashMap.class);
-    }
+    /*
+    private static String headCommitFromFile() {
+        File inFile = join(GITLET_DIR, "headCommit");
+        return readObject(inFile, String.class);
+    } */
 
-    private static HashMap branchesFromFile() {
-        File inFile = join(GITLET_DIR, "branches");
-        return readObject(inFile, HashMap.class);
-    }
+
     /*
      * Each commit’s snapshot of files will be exactly the same as its parent commit’s snapshot of files
      * TODO: clone parent commit
@@ -118,8 +132,26 @@ public class Repository {
      */
 
     public static void commit(String message) {
+        File commits = join(GITLET_DIR, "commits");
+        File branches = join(GITLET_DIR, "branches");
 
-        Commit newCommit = new Commit(message, )
+        commitTree = commitsFromFile();
+        branchMap = branchesFromFile();
+        currentBranch = currentBranchFromFile();
+        String headCommitId = branchMap.get(currentBranch);
+        Commit parentCommit = commitTree.get(headCommitId);
+        Commit newCommit = parentCommit;
+
+        newCommit.updateCommit(message, headCommitId);
+        String newCommitHash = newCommit.getCommitHashId();
+        commitTree.put(newCommitHash, newCommit);
+        branchMap.put(currentBranch, newCommitHash);
+
+        writeObject(commits, commitTree);
+        writeObject(branches, branchMap);
+
+        //TODO: staging area is cleared after a commit.
+
     }
 
 

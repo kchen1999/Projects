@@ -63,6 +63,26 @@ public class Commit implements Serializable {
         this.trackedFiles = new HashMap<String, String>();
     }
 
+    /*TODO:
+       A commit will only update the contents of files it is tracking that have been staged for addition at the
+     *  time of commit, in which case the commit will now include the version of the file that was staged
+     *  instead of the version it got from its parent.
+     *  A commit will save and start tracking any files that were staged for addition but weren’t tracked by its parent.
+     *  Finally, files tracked in the current commit may be untracked in the new commit as a result being
+     *  staged for removal by the rm command (below).
+     *  If no files have been staged, abort. Print the message No changes added to the commit.
+     */
+
+    public void updateCommit(String message, String parent) {
+        if (message == "") {
+            System.out.println("Please enter a commit message");
+            System.exit(0);
+        }
+        this.message = message;
+        this.parent = parent;
+        this.timestamp = new Date();
+    }
+
     public String getCommitHashId() {
         if (parent1 == null) {
             return sha1(message, timestamp, trackedFiles, parent);
