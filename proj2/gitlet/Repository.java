@@ -33,6 +33,8 @@ public class Repository {
     public static HashMap<String, String> stagedForAddition;
     /** Staging area: Mapping of file names to references to files */
     public static HashMap<String, String> stagedForRemoval;
+    /** Mapping of blob references to file contents **/
+    public static HashMap<String, File> blobs;
     /** The current branch */
     public static String currentBranch;
 
@@ -91,6 +93,10 @@ public class Repository {
         return readObject(removalsDir, HashMap.class);
     }
 
+    private static HashMap blobsFromFile() {
+        File inFile = join(GITLET_DIR, "blobs");
+        return readObject(inFile, HashMap.class);
+    }
 
     /*
     * TODO: create initial commit
@@ -174,7 +180,7 @@ public class Repository {
         commitTree = commitsFromFile();
         String headCommitId = getHeadCommitId();
         Commit parentCommit = commitTree.get(headCommitId);
-        Commit newCommit = parentCommit; //clone parent commit
+        Commit newCommit = parentCommit;
         newCommit.updateCommit(message, headCommitId);
         String newCommitHash = newCommit.getCommitHashId();
         commitTree.put(newCommitHash, newCommit);
@@ -199,12 +205,15 @@ public class Repository {
         File f = new File(fileName);
         File additionsDir = join(GITLET_DIR, "stagingArea", "additions");
         File removalsDir = join(GITLET_DIR, "stagingArea", "removal");
+        File blobsDir = join(GITLET_DIR, "blobs");
         if (!f.exists()) {
             System.out.println("File does not exist");
             System.exit(0);
         }
         stagedForAddition = additionsFromFile();
         stagedForRemoval = removalsFromFile();
+        blobs = blobsFromFile();
+
         Commit headCommit = getHeadCommit();
         HashMap<String, String> headCommitTrackedFiles = headCommit.getTrackedFiles();
         String headCommitFileUID = headCommitTrackedFiles.get(fileName);
@@ -222,8 +231,8 @@ public class Repository {
             return;
         }
         stagedForAddition.put(fileName, fileUID);
+        blobs.put(fileUID, f);
         writeObject(additionsDir, stagedForAddition);
+        writeObject(blobsDir, blobs);
     }
-
-
 }
