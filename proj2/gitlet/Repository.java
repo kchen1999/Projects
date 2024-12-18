@@ -32,11 +32,11 @@ public class Repository {
     /** Mapping of branch names to references to commits */
     public static HashMap<String, String> branchMap = new HashMap<>();
     /** Staging area: Mapping of file names to references to files */
-    public static HashMap<String, String> stagedForAddition;
+    public static HashMap<String, String> stagedForAddition = new HashMap<>();
     /** Staging area: Mapping of file names to references to files */
-    public static HashMap<String, String> stagedForRemoval;
+    public static HashMap<String, String> stagedForRemoval = new HashMap<>();
     /** Mapping of blob references to file contents **/
-    public static HashMap<String, File> blobs;
+    public static HashMap<String, File> blobs = new HashMap<>();
     /** The current branch */
     public static String currentBranch;
 
@@ -51,31 +51,12 @@ public class Repository {
      *   - blobs/?
      * */
 
-    public static void setUpPersistence () {
-        if (GITLET_DIR.exists()) {
-            System.out.println("A Gitlet version-control system already exists in the current directory.");
-            System.exit(0);
-        }
-        GITLET_DIR.mkdir();
-
-        File stagingAreaDir = join(GITLET_DIR, "stagingArea");
-        File blobsDir = join(GITLET_DIR, "blobs");
-        stagingAreaDir.mkdir();
-        blobsDir.mkdir();
-
-        File additionsDir = join(GITLET_DIR, "stagingArea", "additions");
-        File removalsDir = join(GITLET_DIR, "stagingArea", "removals");
-        additionsDir.mkdir();
-        removalsDir.mkdir();
-
-    }
-
-    private static HashMap commitsFromFile() {
+    private static HashMap<String, Commit> commitsFromFile() {
         File inFile = join(GITLET_DIR, "commits");
         return readObject(inFile, HashMap.class);
     }
 
-    private static HashMap branchesFromFile() {
+    private static HashMap<String, String> branchesFromFile() {
         File inFile = join(GITLET_DIR, "branches");
         return readObject(inFile, HashMap.class);
     }
@@ -85,19 +66,37 @@ public class Repository {
         return readObject(inFile, String.class);
     }
 
-    private static HashMap additionsFromFile() {
-        File additionsDir = join(GITLET_DIR, "stagingArea", "additions");
-        return readObject(additionsDir, HashMap.class);
+    private static HashMap<String, String> additionsFromFile() {
+        File additionsFile = join(GITLET_DIR, "stagingArea", "additions");
+        return readObject(additionsFile, HashMap.class);
     }
 
-    private static HashMap removalsFromFile() {
-        File removalsDir = join(GITLET_DIR, "stagingArea", "removal");
-        return readObject(removalsDir, HashMap.class);
+    private static HashMap<String, String> removalsFromFile() {
+        File removalsFile = join(GITLET_DIR, "stagingArea", "removal");
+        return readObject(removalsFile, HashMap.class);
     }
 
-    private static HashMap blobsFromFile() {
+    private static HashMap<String, File> blobsFromFile() {
         File inFile = join(GITLET_DIR, "blobs");
         return readObject(inFile, HashMap.class);
+    }
+
+    public static void setUpPersistence () {
+        if (GITLET_DIR.exists()) {
+            System.out.println("A Gitlet version-control system already exists in the current directory.");
+            System.exit(0);
+        }
+        GITLET_DIR.mkdir();
+
+        File stagingAreaDir = join(GITLET_DIR, "stagingArea");
+        File blobsFile = join(GITLET_DIR, "blobs");
+        stagingAreaDir.mkdir();
+        File additionsFile = join(GITLET_DIR, "stagingArea", "additions");
+        File removalsFile = join(GITLET_DIR, "stagingArea", "removals");
+        writeObject(blobsFile, blobs);
+        writeObject(additionsFile, stagedForAddition);
+        writeObject(removalsFile, stagedForRemoval);
+
     }
 
     /*
@@ -112,8 +111,9 @@ public class Repository {
     *   A Gitlet version-control system already exists in the current directory.
     * */
     public static void init() {
-        File commits = join(GITLET_DIR, "commits");
-        File branches = join(GITLET_DIR, "branches");
+        setUpPersistence();
+        File commitsFile = join(GITLET_DIR, "commits");
+        File branchesFile = join(GITLET_DIR, "branches");
         File currentBranchFile = join(GITLET_DIR, "currentBranch");
 
         Commit initialCommit = new Commit("initial commit", null);
@@ -122,8 +122,8 @@ public class Repository {
         branchMap.put("master", initialCommitHash);
         currentBranch = "master";
 
-        writeObject(commits, commitTree);
-        writeObject(branches, branchMap);
+        writeObject(commitsFile, commitTree);
+        writeObject(branchesFile, branchMap);
         writeObject(currentBranchFile, currentBranch);
     }
 

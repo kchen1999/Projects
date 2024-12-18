@@ -54,10 +54,14 @@ public class Commit implements Serializable {
      * */
 
     public void setCommitUID() {
-        if (parent1 == null) {
-            this.commitUID = sha1(message, serialize(timestamp), serialize(trackedFiles), parent);
+        if (parent == null) {
+            this.commitUID = sha1(message, serialize(timestamp), serialize(trackedFiles));
         }
-        this.commitUID = sha1(message, serialize(timestamp), serialize(trackedFiles), parent, parent1);
+        else if (parent1 == null) {
+            this.commitUID = sha1(message, serialize(timestamp), serialize(trackedFiles), parent);
+        } else {
+            this.commitUID = sha1(message, serialize(timestamp), serialize(trackedFiles), parent, parent1);
+        }
     }
 
 

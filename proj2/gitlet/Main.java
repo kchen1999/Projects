@@ -11,15 +11,21 @@ public class Main {
     public static void main(String[] args) {
         // TODO: what if args is empty?
         String firstArg = args[0];
-        Repository.setUpPersistence();
         switch(firstArg) {
             case "init":
                 Repository.init();
                 break;
             case "add":
-                // TODO: handle the `add [filename]` command
+                Repository.add(args[1]);
                 break;
-            // TODO: FILL THE REST IN
+            case "commit":
+                Repository.commit(args[1]);
+                break;
+            case "log":
+                Repository.log();
+                break;
+            default:
+                System.out.println("hello");
         }
     }
 }
