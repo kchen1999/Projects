@@ -157,25 +157,31 @@ public class Repository {
         return commitTree.get(headCommitId);
     }
 
+    public static void clearStagingArea() {
+        File additionsDir = join(GITLET_DIR, "stagingArea", "additions");
+        File removalsDir = join(GITLET_DIR, "stagingArea", "removal");
+        HashMap<String, String> stagedForAddition = additionsFromFile();
+        HashMap<String, String> stagedForRemoval = removalsFromFile();
+        stagedForAddition.clear();
+        stagedForRemoval.clear();
+        writeObject(additionsDir, stagedForAddition);
+        writeObject(removalsDir, stagedForRemoval);
+    }
+
     public static void commit(String message) {
         File commits = join(GITLET_DIR, "commits");
         File branches = join(GITLET_DIR, "branches");
         commitTree = commitsFromFile();
-
         String headCommitId = getHeadCommitId();
         Commit parentCommit = commitTree.get(headCommitId);
-        Commit newCommit = parentCommit;
-
+        Commit newCommit = parentCommit; //clone parent commit
         newCommit.updateCommit(message, headCommitId);
         String newCommitHash = newCommit.getCommitHashId();
         commitTree.put(newCommitHash, newCommit);
         branchMap.put(currentBranch, newCommitHash);
-
         writeObject(commits, commitTree);
         writeObject(branches, branchMap);
-
-        //TODO: staging area is cleared after a commit.
-
+        clearStagingArea();
     }
 
 
