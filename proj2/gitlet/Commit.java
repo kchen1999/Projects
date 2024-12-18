@@ -85,6 +85,10 @@ public class Commit implements Serializable {
         return readObject(removalsDir, HashMap.class);
     }
 
+    public HashMap getTrackedFiles() {
+        return this.trackedFiles;
+    }
+
     public void updateFileContents() {
         HashMap<String, String> stagedForAddition = additionsFromFile();
         HashMap<String, String> stagedForRemoval = removalsFromFile();

@@ -29,6 +29,10 @@ public class Repository {
     public static HashMap<String, Commit> commitTree = new HashMap<>();
     /** Mapping of branch names to references to commits */
     public static HashMap<String, String> branchMap = new HashMap<>();
+    /** Staging area: Mapping of file names to references to files */
+    public static HashMap<String, String> stagedForAddition;
+    /** Staging area: Mapping of file names to references to files */
+    public static HashMap<String, String> stagedForRemoval;
     /** The current branch */
     public static String currentBranch;
 
@@ -77,6 +81,17 @@ public class Repository {
         return readObject(inFile, String.class);
     }
 
+    private static HashMap additionsFromFile() {
+        File additionsDir = join(GITLET_DIR, "stagingArea", "additions");
+        return readObject(additionsDir, HashMap.class);
+    }
+
+    private static HashMap removalsFromFile() {
+        File removalsDir = join(GITLET_DIR, "stagingArea", "removal");
+        return readObject(removalsDir, HashMap.class);
+    }
+
+
     /*
     * TODO: create initial commit
     *  Initial message: initial commit
@@ -91,8 +106,8 @@ public class Repository {
     public static void init() {
         File commits = join(GITLET_DIR, "commits");
         File branches = join(GITLET_DIR, "branches");
-
         File currentBranchFile = join(GITLET_DIR, "currentBranch");
+
         Commit initialCommit = new Commit("initial commit", null);
         String initialCommitHash = initialCommit.getCommitHashId();
         commitTree.put(initialCommitHash, initialCommit);
@@ -130,14 +145,24 @@ public class Repository {
      *  If it doesn’t, print the error message Please enter a commit message.
      */
 
+    private static String getHeadCommitId() {
+        branchMap = branchesFromFile();
+        currentBranch = currentBranchFromFile();
+        return branchMap.get(currentBranch);
+    }
+
+    private static Commit getHeadCommit() {
+        commitTree = commitsFromFile();
+        String headCommitId = getHeadCommitId();
+        return commitTree.get(headCommitId);
+    }
+
     public static void commit(String message) {
         File commits = join(GITLET_DIR, "commits");
         File branches = join(GITLET_DIR, "branches");
-
         commitTree = commitsFromFile();
-        branchMap = branchesFromFile();
-        currentBranch = currentBranchFromFile();
-        String headCommitId = branchMap.get(currentBranch);
+
+        String headCommitId = getHeadCommitId();
         Commit parentCommit = commitTree.get(headCommitId);
         Commit newCommit = parentCommit;
 
@@ -163,8 +188,35 @@ public class Repository {
      * The file will no longer be staged for removal (see gitlet rm), if it was at the time of the command.
      *  If the file does not exist, print the error message File does not exist. and exit without changing anything.
      */
-    public static void add(String fileName) {
 
+    public static void add(String fileName) {
+        File f = new File(fileName);
+        File additionsDir = join(GITLET_DIR, "stagingArea", "additions");
+        File removalsDir = join(GITLET_DIR, "stagingArea", "removal");
+        if (!f.exists()) {
+            System.out.println("File does not exist");
+            System.exit(0);
+        }
+        stagedForAddition = additionsFromFile();
+        stagedForRemoval = removalsFromFile();
+        Commit headCommit = getHeadCommit();
+        HashMap<String, String> headCommitTrackedFiles = headCommit.getTrackedFiles();
+        String headCommitFileUID = headCommitTrackedFiles.get(fileName);
+        String fileUID = sha1(readContents(f));
+
+        if (headCommitFileUID.equals(fileUID)) {
+            if (stagedForAddition.containsKey(fileName)) {
+                stagedForAddition.remove(fileName);
+                writeObject(additionsDir, stagedForAddition);
+            }
+            if (stagedForRemoval.containsKey(fileName)) {
+                stagedForRemoval.remove(fileName);
+                writeObject(removalsDir, stagedForRemoval);
+            }
+            return;
+        }
+        stagedForAddition.put(fileName, fileUID);
+        writeObject(additionsDir, stagedForAddition);
     }
 
 
