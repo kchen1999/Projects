@@ -2,6 +2,8 @@ package gitlet;
 
 import java.io.File;
 import java.util.HashMap;
+import java.util.Date;
+import java.util.Formatter;
 import static gitlet.Utils.*;
 
 // TODO: any imports you need here
@@ -190,7 +192,6 @@ public class Repository {
         clearStagingArea();
     }
 
-
     /*
     * TODO: Adds a copy of the file as it currently exists to the staging area
     * TODO: Staging an already-staged file overwrites the previous entry in the staging area with the new contents.
@@ -234,5 +235,34 @@ public class Repository {
         blobs.put(fileUID, f);
         writeObject(additionsDir, stagedForAddition);
         writeObject(blobsDir, blobs);
+    }
+
+    /**
+     * TODO: Starting at the current head commit, display information about each commit backwards along the commit tree until the
+     *  initial commit, following the first parent commit links, ignoring any second parents found in merge commits.
+     *  For every node in this history, the information it should display is the commit id, the time the commit was made,
+     *  and the commit message.
+     *  For merge commits (those that have two parent commits), add a line just below the first
+     * */
+
+    private static void printCommit(String commitHash, Commit commit) {
+        System.out.println("===");
+        System.out.println("commit " + commitHash);
+        if (commit.getParent1() != null) {
+            System.out.println(commit.getParent().substring(0, 7) + commit.getParent1().substring(0, 7));
+        }
+        System.out.println("Date: " + commit.getTimestamp());
+        System.out.println(commit.getMessage());
+        System.out.println("");
+    }
+
+    public static void log() {
+        commitTree = commitsFromFile();
+        Commit headCommit = getHeadCommit();
+        while (headCommit != null) {
+            printCommit(headCommit.getCommitHashId(), headCommit);
+            String parentCommitHash = headCommit.getParent();
+            headCommit = commitTree.get(parentCommitHash);
+        }
     }
 }
