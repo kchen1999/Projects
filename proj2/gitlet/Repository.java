@@ -25,7 +25,7 @@ public class Repository {
     public static final File CWD = new File(System.getProperty("user.dir"));
     /** The .gitlet directory. */
     public static final File GITLET_DIR = join(CWD, ".gitlet");
-    /** The commit tree. */
+    /** The commit tree - mapping of commit references to their commit. */
     public static HashMap<String, Commit> commitTree = new HashMap<>();
     /** Mapping of branch names to references to commits */
     public static HashMap<String, String> branchMap = new HashMap<>();
@@ -37,6 +37,8 @@ public class Repository {
      * (creates any necessary folders or files)
      *   .gitlet/
      *   - stagingArea/
+     *      - addition
+     *      - removal
      *   - commits/
      *   - blobs/?
      * */
@@ -50,9 +52,14 @@ public class Repository {
 
         File stagingAreaDir = join(GITLET_DIR, "stagingArea");
         File blobsDir = join(GITLET_DIR, "blobs");
-
         stagingAreaDir.mkdir();
         blobsDir.mkdir();
+
+        File additionsDir = join(GITLET_DIR, "stagingArea", "additions");
+        File removalsDir = join(GITLET_DIR, "stagingArea", "removals");
+        additionsDir.mkdir();
+        removalsDir.mkdir();
+
     }
 
     private static HashMap commitsFromFile() {
@@ -84,26 +91,18 @@ public class Repository {
     public static void init() {
         File commits = join(GITLET_DIR, "commits");
         File branches = join(GITLET_DIR, "branches");
-        //File headCommit = join(GITLET_DIR, "headCommit");
+
         File currentBranchFile = join(GITLET_DIR, "currentBranch");
         Commit initialCommit = new Commit("initial commit", null);
         String initialCommitHash = initialCommit.getCommitHashId();
-
         commitTree.put(initialCommitHash, initialCommit);
         branchMap.put("master", initialCommitHash);
         currentBranch = "master";
+
         writeObject(commits, commitTree);
         writeObject(branches, branchMap);
-        //writeObject(headCommit, initialCommitHash);
         writeObject(currentBranchFile, currentBranch);
     }
-
-    /*
-    private static String headCommitFromFile() {
-        File inFile = join(GITLET_DIR, "headCommit");
-        return readObject(inFile, String.class);
-    } */
-
 
     /*
      * Each commit’s snapshot of files will be exactly the same as its parent commit’s snapshot of files
@@ -151,6 +150,20 @@ public class Repository {
         writeObject(branches, branchMap);
 
         //TODO: staging area is cleared after a commit.
+
+    }
+
+
+    /*
+    * TODO: Adds a copy of the file as it currently exists to the staging area
+    * TODO: Staging an already-staged file overwrites the previous entry in the staging area with the new contents.
+    * TODO: If the current working version of the file is identical to the version in the current commit,
+    *  do not stage it to be added, and remove it from the staging area if it is already there
+    *  (as can happen when a file is changed, added, and then changed back to it’s original version).
+     * The file will no longer be staged for removal (see gitlet rm), if it was at the time of the command.
+     *  If the file does not exist, print the error message File does not exist. and exit without changing anything.
+     */
+    public static void add(String fileName) {
 
     }
 

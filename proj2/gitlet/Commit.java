@@ -2,6 +2,7 @@ package gitlet;
 
 // TODO: any imports you need here
 
+import java.io.File;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.HashMap;
@@ -30,6 +31,7 @@ public class Commit implements Serializable {
     private String parent;
     /** Link to Second Parent Commit for merges. */
     private String parent1;
+    /** Mapping of file names to blob references*/
     private HashMap<String, String> trackedFiles;
     /**
      * Each commit (rectangle) points to some blobs (circles), which contain file contents
@@ -73,7 +75,34 @@ public class Commit implements Serializable {
      *  If no files have been staged, abort. Print the message No changes added to the commit.
      */
 
+    private static HashMap additionsFromFile() {
+        File additionsDir = join(".gitlet", "stagingArea", "additions");
+        return readObject(additionsDir, HashMap.class);
+    }
+
+    private static HashMap removalsFromFile() {
+        File removalsDir = join(".gitlet", "stagingArea", "removal");
+        return readObject(removalsDir, HashMap.class);
+    }
+
+    public void updateFileContents() {
+        HashMap<String, String> stagedForAddition = additionsFromFile();
+        HashMap<String, String> stagedForRemoval = removalsFromFile();
+        if (stagedForAddition.isEmpty()) {
+            System.out.println("No changes added to the commit");
+            System.exit(0);
+        }
+        for (String fileName : stagedForAddition.keySet()) {
+            String blobReference = stagedForAddition.get(fileName);
+            this.trackedFiles.put(fileName, blobReference);
+        }
+        for (String fileName: stagedForRemoval.keySet()) {
+            this.trackedFiles.remove(fileName);
+        }
+    }
+
     public void updateCommit(String message, String parent) {
+        updateFileContents();
         if (message == "") {
             System.out.println("Please enter a commit message");
             System.exit(0);
