@@ -22,7 +22,8 @@ public class Commit implements Serializable {
      * comment above them describing what that variable represents and how that
      * variable is used. We've provided one example for `message`.
      */
-
+    /** The hash ID of this commit. */
+    private String commitUID;
     /** The message of this Commit. */
     private String message;
     /** The timestamp of this Commit. */
@@ -52,6 +53,13 @@ public class Commit implements Serializable {
      * and another for commits.
      * */
 
+    public void setCommitUID() {
+        if (parent1 == null) {
+            this.commitUID = sha1(message, serialize(timestamp), serialize(trackedFiles), parent);
+        }
+        this.commitUID = sha1(message, serialize(timestamp), serialize(trackedFiles), parent, parent1);
+    }
+
 
     public Commit(String message, String parent) {
         this.message = message;
@@ -63,6 +71,7 @@ public class Commit implements Serializable {
             this.timestamp = new Date();
         }
         this.trackedFiles = new HashMap<String, String>();
+        setCommitUID();
     }
 
     /*TODO:
@@ -87,6 +96,22 @@ public class Commit implements Serializable {
 
     public HashMap getTrackedFiles() {
         return this.trackedFiles;
+    }
+
+    public Date getTimestamp() {
+        return timestamp;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public String getParent() {
+        return parent;
+    }
+
+    public String getParent1() {
+        return parent1;
     }
 
     public void updateFileContents() {
@@ -117,9 +142,6 @@ public class Commit implements Serializable {
     }
 
     public String getCommitHashId() {
-        if (parent1 == null) {
-            return sha1(message, timestamp, trackedFiles, parent);
-        }
-        return sha1(message, timestamp, trackedFiles, parent, parent1);
+        return this.commitUID;
     }
 }
