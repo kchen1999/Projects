@@ -29,9 +29,9 @@ public class Commit implements Serializable {
     /** The timestamp of this Commit. */
     private Date timestamp;
     /** Link to Parent Commit. */
-    private String parent;
+    private String parentUID;
     /** Link to Second Parent Commit for merges. */
-    private String parent1;
+    private String parent1UID;
     /** Mapping of file names to blob references*/
     private HashMap<String, String> trackedFiles;
     /**
@@ -54,27 +54,30 @@ public class Commit implements Serializable {
      * */
 
     public void setCommitUID() {
-        if (parent == null) {
+        if (parentUID == null) {
             this.commitUID = sha1(message, serialize(timestamp), serialize(trackedFiles));
         }
-        else if (parent1 == null) {
-            this.commitUID = sha1(message, serialize(timestamp), serialize(trackedFiles), parent);
+        else if (parent1UID == null) {
+            this.commitUID = sha1(message, serialize(timestamp), serialize(trackedFiles), parentUID);
         } else {
-            this.commitUID = sha1(message, serialize(timestamp), serialize(trackedFiles), parent, parent1);
+            this.commitUID = sha1(message, serialize(timestamp), serialize(trackedFiles), parentUID, parent1UID);
         }
     }
 
-
     public Commit(String message, String parent) {
+        if (message.equals("")) {
+            System.out.println("Please enter a commit message");
+            System.exit(0);
+        }
         this.message = message;
-        this.parent = parent;
-        this.parent1 = null;
+        this.parentUID = parent;
+        this.parent1UID = null;
         if (parent == null) {
             this.timestamp = new Date(0);
         } else {
             this.timestamp = new Date();
         }
-        this.trackedFiles = new HashMap<String, String>();
+        this.trackedFiles = new HashMap<>();
         setCommitUID();
     }
 
@@ -88,6 +91,24 @@ public class Commit implements Serializable {
      *  If no files have been staged, abort. Print the message No changes added to the commit.
      */
 
+    public void updateFileContents(HashMap trackedFiles) {
+        this.trackedFiles = trackedFiles;
+        HashMap<String, String> additions = additionsFromFile();
+        HashMap<String, String> filesStagedForRemoval = removalsFromFile();
+        if (additions.isEmpty()) {
+            System.out.println("No changes added to the commit");
+            System.exit(0);
+        }
+        for (String fileName : additions.keySet()) {
+            String blobUID = additions.get(fileName);
+            this.trackedFiles.put(fileName, blobUID);
+        }
+        for (String fileName: filesStagedForRemoval.keySet()) {
+            this.trackedFiles.remove(fileName);
+        }
+        setCommitUID();
+    }
+
     private static HashMap additionsFromFile() {
         File additionsFile = join(".gitlet", "stagingArea", "additions");
         return readObject(additionsFile, HashMap.class);
@@ -98,7 +119,7 @@ public class Commit implements Serializable {
         return readObject(removalsFile, HashMap.class);
     }
 
-    public HashMap getTrackedFiles() {
+    public HashMap<String, String> getTrackedFiles() {
         return this.trackedFiles;
     }
 
@@ -110,42 +131,15 @@ public class Commit implements Serializable {
         return message;
     }
 
-    public String getParent() {
-        return parent;
+    public String getParentUID() {
+        return parentUID;
     }
 
-    public String getParent1() {
-        return parent1;
+    public String getParent1UID() {
+        return parent1UID;
     }
 
-    public String getCommitHashId() {
+    public String getCommitUID() {
         return this.commitUID;
-    }
-
-    public void updateFileContents() {
-        HashMap<String, String> filesStagedForAddition = additionsFromFile();
-        HashMap<String, String> filesStagedForRemoval = removalsFromFile();
-        if (filesStagedForAddition.isEmpty()) {
-            System.out.println("No changes added to the commit");
-            System.exit(0);
-        }
-        for (String fileName : filesStagedForAddition.keySet()) {
-            String blobUID = filesStagedForAddition.get(fileName);
-            this.trackedFiles.put(fileName, blobUID);
-        }
-        for (String fileName: filesStagedForRemoval.keySet()) {
-            this.trackedFiles.remove(fileName);
-        }
-    }
-
-    public void update(String message, String parent) {
-        updateFileContents();
-        if (message == "") {
-            System.out.println("Please enter a commit message");
-            System.exit(0);
-        }
-        this.message = message;
-        this.parent = parent;
-        this.timestamp = new Date();
     }
 }
