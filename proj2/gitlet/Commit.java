@@ -89,13 +89,13 @@ public class Commit implements Serializable {
      */
 
     private static HashMap additionsFromFile() {
-        File additionsDir = join(".gitlet", "stagingArea", "additions");
-        return readObject(additionsDir, HashMap.class);
+        File additionsFile = join(".gitlet", "stagingArea", "additions");
+        return readObject(additionsFile, HashMap.class);
     }
 
     private static HashMap removalsFromFile() {
-        File removalsDir = join(".gitlet", "stagingArea", "removal");
-        return readObject(removalsDir, HashMap.class);
+        File removalsFile = join(".gitlet", "stagingArea", "removals");
+        return readObject(removalsFile, HashMap.class);
     }
 
     public HashMap getTrackedFiles() {
@@ -118,23 +118,27 @@ public class Commit implements Serializable {
         return parent1;
     }
 
+    public String getCommitHashId() {
+        return this.commitUID;
+    }
+
     public void updateFileContents() {
-        HashMap<String, String> stagedForAddition = additionsFromFile();
-        HashMap<String, String> stagedForRemoval = removalsFromFile();
-        if (stagedForAddition.isEmpty()) {
+        HashMap<String, String> filesStagedForAddition = additionsFromFile();
+        HashMap<String, String> filesStagedForRemoval = removalsFromFile();
+        if (filesStagedForAddition.isEmpty()) {
             System.out.println("No changes added to the commit");
             System.exit(0);
         }
-        for (String fileName : stagedForAddition.keySet()) {
-            String blobReference = stagedForAddition.get(fileName);
-            this.trackedFiles.put(fileName, blobReference);
+        for (String fileName : filesStagedForAddition.keySet()) {
+            String blobUID = filesStagedForAddition.get(fileName);
+            this.trackedFiles.put(fileName, blobUID);
         }
-        for (String fileName: stagedForRemoval.keySet()) {
+        for (String fileName: filesStagedForRemoval.keySet()) {
             this.trackedFiles.remove(fileName);
         }
     }
 
-    public void updateCommit(String message, String parent) {
+    public void update(String message, String parent) {
         updateFileContents();
         if (message == "") {
             System.out.println("Please enter a commit message");
@@ -143,9 +147,5 @@ public class Commit implements Serializable {
         this.message = message;
         this.parent = parent;
         this.timestamp = new Date();
-    }
-
-    public String getCommitHashId() {
-        return this.commitUID;
     }
 }

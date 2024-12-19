@@ -32,9 +32,9 @@ public class Repository {
     /** Mapping of branch names to references to commits */
     public static HashMap<String, String> branchMap = new HashMap<>();
     /** Staging area: Mapping of file names to references to files */
-    public static HashMap<String, String> stagedForAddition = new HashMap<>();
+    public static HashMap<String, String> filesStagedForAddition = new HashMap<>();
     /** Staging area: Mapping of file names to references to files */
-    public static HashMap<String, String> stagedForRemoval = new HashMap<>();
+    public static HashMap<String, String> filesStagedForRemoval = new HashMap<>();
     /** Mapping of blob references to file contents **/
     public static HashMap<String, File> blobs = new HashMap<>();
     /** The current branch */
@@ -72,7 +72,7 @@ public class Repository {
     }
 
     private static HashMap<String, String> removalsFromFile() {
-        File removalsFile = join(GITLET_DIR, "stagingArea", "removal");
+        File removalsFile = join(GITLET_DIR, "stagingArea", "removals");
         return readObject(removalsFile, HashMap.class);
     }
 
@@ -87,16 +87,15 @@ public class Repository {
             System.exit(0);
         }
         GITLET_DIR.mkdir();
-
         File stagingAreaDir = join(GITLET_DIR, "stagingArea");
-        File blobsFile = join(GITLET_DIR, "blobs");
         stagingAreaDir.mkdir();
+
+        File blobsFile = join(GITLET_DIR, "blobs");
         File additionsFile = join(GITLET_DIR, "stagingArea", "additions");
         File removalsFile = join(GITLET_DIR, "stagingArea", "removals");
         writeObject(blobsFile, blobs);
-        writeObject(additionsFile, stagedForAddition);
-        writeObject(removalsFile, stagedForRemoval);
-
+        writeObject(additionsFile, filesStagedForAddition);
+        writeObject(removalsFile, filesStagedForRemoval);
     }
 
     /*
@@ -166,29 +165,29 @@ public class Repository {
     }
 
     public static void clearStagingArea() {
-        File additionsDir = join(GITLET_DIR, "stagingArea", "additions");
-        File removalsDir = join(GITLET_DIR, "stagingArea", "removal");
-        HashMap<String, String> stagedForAddition = additionsFromFile();
-        HashMap<String, String> stagedForRemoval = removalsFromFile();
-        stagedForAddition.clear();
-        stagedForRemoval.clear();
-        writeObject(additionsDir, stagedForAddition);
-        writeObject(removalsDir, stagedForRemoval);
+        File additionsFile = join(GITLET_DIR, "stagingArea", "additions");
+        File removalsFile = join(GITLET_DIR, "stagingArea", "removals");
+        filesStagedForAddition = additionsFromFile();
+        filesStagedForRemoval = removalsFromFile();
+        filesStagedForAddition.clear();
+        filesStagedForRemoval.clear();
+        writeObject(additionsFile, filesStagedForAddition);
+        writeObject(removalsFile, filesStagedForRemoval);
     }
 
     public static void commit(String message) {
-        File commits = join(GITLET_DIR, "commits");
-        File branches = join(GITLET_DIR, "branches");
+        File commitsFile = join(GITLET_DIR, "commits");
+        File branchesFile = join(GITLET_DIR, "branches");
         commitTree = commitsFromFile();
         String headCommitId = getHeadCommitId();
         Commit parentCommit = commitTree.get(headCommitId);
         Commit newCommit = parentCommit;
-        newCommit.updateCommit(message, headCommitId);
+        newCommit.update(message, headCommitId);
         String newCommitHash = newCommit.getCommitHashId();
         commitTree.put(newCommitHash, newCommit);
         branchMap.put(currentBranch, newCommitHash);
-        writeObject(commits, commitTree);
-        writeObject(branches, branchMap);
+        writeObject(commitsFile, commitTree);
+        writeObject(branchesFile, branchMap);
         clearStagingArea();
     }
 
@@ -202,39 +201,51 @@ public class Repository {
      *  If the file does not exist, print the error message File does not exist. and exit without changing anything.
      */
 
+    private static boolean isCurrentlyTrackedByCurrentCommit(String headCommitFileUID) {
+        return headCommitFileUID != null;
+    }
+
+    private static boolean isIdenticalFile(String f1, String f2) {
+        return f1.equals(f2);
+    }
+
+    private static boolean isIdenticalToCurrentCommitVersion(String headCommitFileUID, String blobUID) {
+        return isCurrentlyTrackedByCurrentCommit(headCommitFileUID) && isIdenticalFile(headCommitFileUID, blobUID);
+    }
+
     public static void add(String fileName) {
-        File f = new File(fileName);
-        File additionsDir = join(GITLET_DIR, "stagingArea", "additions");
-        File removalsDir = join(GITLET_DIR, "stagingArea", "removal");
-        File blobsDir = join(GITLET_DIR, "blobs");
-        if (!f.exists()) {
+        File fileContentsCopy = new File(fileName);
+        File additionsFile = join(GITLET_DIR, "stagingArea", "additions");
+        File removalsFile = join(GITLET_DIR, "stagingArea", "removals");
+        File blobsFile = join(GITLET_DIR, "blobs");
+        if (!fileContentsCopy.exists()) {
             System.out.println("File does not exist");
             System.exit(0);
         }
-        stagedForAddition = additionsFromFile();
-        stagedForRemoval = removalsFromFile();
+        filesStagedForAddition = additionsFromFile();
+        filesStagedForRemoval = removalsFromFile();
         blobs = blobsFromFile();
 
         Commit headCommit = getHeadCommit();
         HashMap<String, String> headCommitTrackedFiles = headCommit.getTrackedFiles();
         String headCommitFileUID = headCommitTrackedFiles.get(fileName);
-        String fileUID = sha1(readContents(f));
+        String blobUID = sha1(readContents(fileContentsCopy));
 
-        if (headCommitFileUID.equals(fileUID)) {
-            if (stagedForAddition.containsKey(fileName)) {
-                stagedForAddition.remove(fileName);
-                writeObject(additionsDir, stagedForAddition);
+        if (isIdenticalToCurrentCommitVersion(headCommitFileUID, blobUID)) {
+            if (filesStagedForAddition.containsKey(fileName)) {
+                filesStagedForAddition.remove(fileName);
+                writeObject(additionsFile, filesStagedForAddition);
             }
-            if (stagedForRemoval.containsKey(fileName)) {
-                stagedForRemoval.remove(fileName);
-                writeObject(removalsDir, stagedForRemoval);
+            if (filesStagedForRemoval.containsKey(fileName)) {
+                filesStagedForRemoval.remove(fileName);
+                writeObject(removalsFile, filesStagedForRemoval);
             }
             return;
         }
-        stagedForAddition.put(fileName, fileUID);
-        blobs.put(fileUID, f);
-        writeObject(additionsDir, stagedForAddition);
-        writeObject(blobsDir, blobs);
+        filesStagedForAddition.put(fileName, blobUID);
+        blobs.put(blobUID, fileContentsCopy);
+        writeObject(additionsFile, filesStagedForAddition);
+        writeObject(blobsFile, blobs);
     }
 
     /**
@@ -245,7 +256,7 @@ public class Repository {
      *  For merge commits (those that have two parent commits), add a line just below the first
      * */
 
-    private static void printCommit(String commitHash, Commit commit) {
+    private static void printIndividualCommit(String commitHash, Commit commit) {
         System.out.println("===");
         System.out.println("commit " + commitHash);
         if (commit.getParent1() != null) {
@@ -260,7 +271,7 @@ public class Repository {
         commitTree = commitsFromFile();
         Commit headCommit = getHeadCommit();
         while (headCommit != null) {
-            printCommit(headCommit.getCommitHashId(), headCommit);
+            printIndividualCommit(headCommit.getCommitHashId(), headCommit);
             String parentCommitHash = headCommit.getParent();
             headCommit = commitTree.get(parentCommitHash);
         }
