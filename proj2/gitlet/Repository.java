@@ -1,6 +1,7 @@
 package gitlet;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Date;
 import java.util.Formatter;
@@ -29,6 +30,8 @@ public class Repository {
     public static final File GITLET_DIR = join(CWD, ".gitlet");
     /** The commit tree - mapping of commit references to their commit. */
     public static HashMap<String, Commit> commits = new HashMap<>();
+    /** The abbreviated commit tree - mapping of 6 digit commit abbreviations to their commit reference*/
+    public static HashMap<String, ArrayList<String>> commitPrefixes= new HashMap<>();
     /** Mapping of branch names to references to commits */
     public static HashMap<String, String> branches = new HashMap<>();
     /** Staging area (files staged for addition): Mapping of file names to references to files */
@@ -36,7 +39,7 @@ public class Repository {
     /** Staging area (files staged for removal): Mapping of file names to references to files */
     public static HashMap<String, String> removals = new HashMap<>();
     /** Mapping of blob references to file contents **/
-    public static HashMap<String, File> blobs = new HashMap<>();
+    public static HashMap<String, File> blobMap = new HashMap<>();
     /** The current branch */
     public static String currentBranch;
 
@@ -53,6 +56,11 @@ public class Repository {
 
     private static HashMap<String, Commit> commitsFromFile() {
         File inFile = join(GITLET_DIR, "commits");
+        return readObject(inFile, HashMap.class);
+    }
+
+    private static HashMap<String, ArrayList<String>> commitPrefixesFromFile() {
+        File inFile = join(GITLET_DIR, "commitPrefixes");
         return readObject(inFile, HashMap.class);
     }
 
@@ -76,8 +84,8 @@ public class Repository {
         return readObject(removalsFile, HashMap.class);
     }
 
-    private static HashMap<String, File> blobsFromFile() {
-        File inFile = join(GITLET_DIR, "blobs");
+    private static HashMap<String, File> blobMapFromFile() {
+        File inFile = join(GITLET_DIR, "blobMap");
         return readObject(inFile, HashMap.class);
     }
 
@@ -89,11 +97,16 @@ public class Repository {
         GITLET_DIR.mkdir();
         File stagingAreaDir = join(GITLET_DIR, "stagingArea");
         stagingAreaDir.mkdir();
+        File blobs = join(GITLET_DIR, "blobs");
+        blobs.mkdir();
 
-        File blobsFile = join(GITLET_DIR, "blobs");
+
+        File commitPrefixesFile = join(GITLET_DIR, "commitPrefixes");
+        File blobMapFile = join(GITLET_DIR, "blobMap");
         File additionsFile = join(GITLET_DIR, "stagingArea", "additions");
         File removalsFile = join(GITLET_DIR, "stagingArea", "removals");
-        writeObject(blobsFile, blobs);
+        writeObject(commitPrefixesFile, commitPrefixes);
+        writeObject(blobMapFile, blobMap);
         writeObject(additionsFile, additions);
         writeObject(removalsFile, removals);
     }
@@ -166,7 +179,21 @@ public class Repository {
         return commits.get(commitUID);
     }
 
-    public static void clearStagingArea() {
+    private static void addCommitPrefix(String commitUID) {
+        File commitPrefixesFile = join(GITLET_DIR, "commitPrefixes");
+        commitPrefixes = commitPrefixesFromFile();
+        String commitUIDAbbreviated = commitUID.substring(0, 6);
+        String commitUIDRest = commitUID.substring(6, commitUID.length());
+        ArrayList<String> commitUIDRemainder = commitPrefixes.get(commitUIDAbbreviated);
+        if (commitUIDRemainder == null) {
+            commitUIDRemainder = new ArrayList<>();
+        }
+        commitUIDRemainder.add(commitUIDRest);
+        commitPrefixes.put(commitUIDAbbreviated, commitUIDRemainder);
+        writeObject(commitPrefixesFile, commitPrefixes);
+    }
+
+    private static void clearStagingArea() {
         File additionsFile = join(GITLET_DIR, "stagingArea", "additions");
         File removalsFile = join(GITLET_DIR, "stagingArea", "removals");
         additions = additionsFromFile();
@@ -187,6 +214,7 @@ public class Repository {
         newCommit.updateFileContents(parentCommit.getTrackedFiles());
         commits.put(newCommit.getCommitUID(), newCommit);
         branches.put(currentBranch, newCommit.getCommitUID());
+        addCommitPrefix(newCommit.getCommitUID());
         writeObject(commitsFile, commits);
         writeObject(branchesFile, branches);
         clearStagingArea();
@@ -218,14 +246,14 @@ public class Repository {
         File file = new File(fileName);
         File additionsFile = join(GITLET_DIR, "stagingArea", "additions");
         File removalsFile = join(GITLET_DIR, "stagingArea", "removals");
-        File blobsFile = join(GITLET_DIR, "blobs");
+        File blobMapFile = join(GITLET_DIR, "blobMap");
         if (!file.exists()) {
             System.out.println("File does not exist");
             System.exit(0);
         }
         additions = additionsFromFile();
         removals = removalsFromFile();
-        blobs = blobsFromFile();
+        blobMap = blobMapFromFile();
 
         Commit headCommit = getHeadCommit();
         HashMap<String, String> headCommitTrackedFiles = headCommit.getTrackedFiles();
@@ -243,13 +271,13 @@ public class Repository {
             }
             return;
         }
-        File fileContents = join(GITLET_DIR, blobUID + ".txt"); //need to make of copy file contents instead of adding file pointer directly!
-        writeContents(fileContents, readContents(file));
+        File fileCopy = join(GITLET_DIR, "blobs", blobUID); //need to make of copy file contents instead of adding file pointer directly!
+        writeContents(fileCopy, readContents(file));
 
         additions.put(fileName, blobUID);
-        blobs.put(blobUID, fileContents);
+        blobMap.put(blobUID, fileCopy);
         writeObject(additionsFile, additions);
-        writeObject(blobsFile, blobs);
+        writeObject(blobMapFile, blobMap);
     }
 
     /**
@@ -292,9 +320,14 @@ public class Repository {
         File currentFile = new File(fileName);
         checkIfFileExistsInCommit(trackedFiles, fileName);
         String commitVersionBlobUID = trackedFiles.get(fileName);
-        blobs = blobsFromFile();
-        File commitVersion = blobs.get(commitVersionBlobUID);
+        blobMap = blobMapFromFile();
+        File commitVersion = blobMap.get(commitVersionBlobUID);
         writeContents(currentFile, readContents(commitVersion));
+    }
+
+    private static void printCommitIDErrorMessage() {
+        System.out.println("No commit with that id exists.");
+        System.exit(0);
     }
 
     /**
@@ -309,6 +342,27 @@ public class Repository {
         overwriteCurrentFileVersion(headCommit.getTrackedFiles(), fileName);
     }
 
+    private static String getFullCommitUID (String commitUID) {
+        if (commitUID.length() < 6) {
+            printCommitIDErrorMessage();
+        }
+        commitPrefixes = commitPrefixesFromFile();
+        ArrayList<String> commitUIDRemainder = commitPrefixes.get(commitUID.substring(0, 6));
+        if (commitUIDRemainder == null) {
+            printCommitIDErrorMessage();
+        }
+        if (commitUID.length() == 6) {
+            return commitUID.concat(commitUIDRemainder.get(0));
+        }
+        for (String s : commitUIDRemainder) {
+            if (commitUID.substring(6, commitUID.length()).equals(s.substring(0, commitUID.length() - 6))) {
+                return commitUID.substring(0, 6).concat(s);
+            }
+         }
+        printCommitIDErrorMessage();
+        return null;
+    }
+
     /**
      * TODO: Takes the version of the file as it exists in the commit with the given id, and puts it in the working directory,
      *  overwriting the version of the file that’s already there if there is one.
@@ -318,10 +372,12 @@ public class Repository {
      * **/
 
     public static void checkout(String commitUID, String fileName) {
+        if (commitUID.length() < 40) {
+            commitUID = getFullCommitUID(commitUID);
+        }
         Commit commit = getCommit(commitUID);
         if (commit == null) {
-            System.out.println("No commit with that id exists.");
-            System.exit(0);
+            printCommitIDErrorMessage();
         }
         overwriteCurrentFileVersion(commit.getTrackedFiles(), fileName);
     }
