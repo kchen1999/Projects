@@ -89,6 +89,13 @@ public class Repository {
         return readObject(inFile, HashMap.class);
     }
 
+    private static void checkGitletDirIsInitialized() {
+        if (!GITLET_DIR.exists()) {
+            System.out.println("Not in an initialized Gitlet directory.");
+            System.exit(0);
+        }
+    }
+
     public static void setUpPersistence () {
         if (GITLET_DIR.exists()) {
             System.out.println("A Gitlet version-control system already exists in the current directory.");
@@ -205,6 +212,7 @@ public class Repository {
     }
 
     public static void commit(String message) {
+        checkGitletDirIsInitialized();
         File commitsFile = join(GITLET_DIR, "commits");
         File branchesFile = join(GITLET_DIR, "branches");
         commits = commitsFromFile();
@@ -243,6 +251,7 @@ public class Repository {
     }
 
     public static void add(String fileName) {
+        checkGitletDirIsInitialized();
         File file = new File(fileName);
         File additionsFile = join(GITLET_DIR, "stagingArea", "additions");
         File removalsFile = join(GITLET_DIR, "stagingArea", "removals");
@@ -300,6 +309,7 @@ public class Repository {
     }
 
     public static void log() {
+        checkGitletDirIsInitialized();
         commits = commitsFromFile();
         Commit headCommit = getHeadCommit();
         while (headCommit != null) {
@@ -338,6 +348,7 @@ public class Repository {
      *   File does not exist in that commit. Do not change the CWD.
      * **/
     public static void checkout(String fileName) {
+        checkGitletDirIsInitialized();
         Commit headCommit = getHeadCommit();
         overwriteCurrentFileVersion(headCommit.getTrackedFiles(), fileName);
     }
@@ -372,6 +383,7 @@ public class Repository {
      * **/
 
     public static void checkout(String commitUID, String fileName) {
+        checkGitletDirIsInitialized();
         if (commitUID.length() < 40) {
             commitUID = getFullCommitUID(commitUID);
         }
