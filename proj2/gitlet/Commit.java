@@ -91,8 +91,11 @@ public class Commit implements Serializable {
      *  If no files have been staged, abort. Print the message No changes added to the commit.
      */
 
-    public void updateFileContents(HashMap trackedFiles) {
-        this.trackedFiles = trackedFiles;
+    public void updateFileContents(HashMap<String, String> trackedFiles) {
+        //this.trackedFiles = trackedFiles; //this is the culprit - trackedFiles is a pointer! 2nd time mistake!
+        for (String fileName : trackedFiles.keySet()) {
+            this.trackedFiles.put(fileName, trackedFiles.get(fileName));
+        }
         HashMap<String, String> additions = additionsFromFile();
         HashMap<String, String> filesStagedForRemoval = removalsFromFile();
         if (additions.isEmpty()) {

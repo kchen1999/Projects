@@ -158,9 +158,12 @@ public class Repository {
     }
 
     private static Commit getHeadCommit() {
+        return getCommit(getHeadCommitId());
+    }
+
+    private static Commit getCommit(String commitUID) {
         commits = commitsFromFile();
-        String headCommitId = getHeadCommitId();
-        return commits.get(headCommitId);
+        return commits.get(commitUID);
     }
 
     public static void clearStagingArea() {
@@ -177,7 +180,7 @@ public class Repository {
     public static void commit(String message) {
         File commitsFile = join(GITLET_DIR, "commits");
         File branchesFile = join(GITLET_DIR, "branches");
-        commits= commitsFromFile();
+        commits = commitsFromFile();
         currentBranch = currentBranchFromFile();
         Commit parentCommit = getHeadCommit();
         Commit newCommit = new Commit(message, parentCommit.getCommitUID());
@@ -199,24 +202,24 @@ public class Repository {
      *  If the file does not exist, print the error message File does not exist. and exit without changing anything.
      */
 
-    private static boolean isCurrentlyTrackedByCurrentCommit(String headCommitFileUID) {
-        return headCommitFileUID != null;
+    private static boolean isCurrentlyTrackedByCurrentCommit(String headCommitBlobUID) {
+        return headCommitBlobUID != null;
     }
 
     private static boolean isIdenticalFile(String f1, String f2) {
         return f1.equals(f2);
     }
 
-    private static boolean isIdenticalToCurrentCommitVersion(String headCommitFileUID, String blobUID) {
-        return isCurrentlyTrackedByCurrentCommit(headCommitFileUID) && isIdenticalFile(headCommitFileUID, blobUID);
+    private static boolean isIdenticalToCurrentCommitVersion(String headCommitBlobUID, String blobUID) {
+        return isCurrentlyTrackedByCurrentCommit(headCommitBlobUID) && isIdenticalFile(headCommitBlobUID, blobUID);
     }
 
     public static void add(String fileName) {
-        File fileContentsCopy = new File(fileName);
+        File file = new File(fileName);
         File additionsFile = join(GITLET_DIR, "stagingArea", "additions");
         File removalsFile = join(GITLET_DIR, "stagingArea", "removals");
         File blobsFile = join(GITLET_DIR, "blobs");
-        if (!fileContentsCopy.exists()) {
+        if (!file.exists()) {
             System.out.println("File does not exist");
             System.exit(0);
         }
@@ -226,10 +229,10 @@ public class Repository {
 
         Commit headCommit = getHeadCommit();
         HashMap<String, String> headCommitTrackedFiles = headCommit.getTrackedFiles();
-        String headCommitFileUID = headCommitTrackedFiles.get(fileName);
-        String blobUID = sha1(readContents(fileContentsCopy));
+        String headCommitVersionBlobUID = headCommitTrackedFiles.get(fileName);
+        String blobUID = sha1(readContents(file));
 
-        if (isIdenticalToCurrentCommitVersion(headCommitFileUID, blobUID)) {
+        if (isIdenticalToCurrentCommitVersion(headCommitVersionBlobUID, blobUID)) {
             if (additions.containsKey(fileName)) {
                 additions.remove(fileName);
                 writeObject(additionsFile, additions);
@@ -240,8 +243,11 @@ public class Repository {
             }
             return;
         }
+        File fileContents = join(GITLET_DIR, blobUID + ".txt"); //need to make of copy file contents instead of adding file pointer directly!
+        writeContents(fileContents, readContents(file));
+
         additions.put(fileName, blobUID);
-        blobs.put(blobUID, fileContentsCopy);
+        blobs.put(blobUID, fileContents);
         writeObject(additionsFile, additions);
         writeObject(blobsFile, blobs);
     }
@@ -273,6 +279,51 @@ public class Repository {
             String parentCommitUID = headCommit.getParentUID();
             headCommit = commits.get(parentCommitUID);
         }
+    }
+
+    private static void checkIfFileExistsInCommit(HashMap<String, String> trackedFiles, String fileName) {
+        if (trackedFiles == null || !trackedFiles.containsKey(fileName)) {
+          System.out.println("File does not exist in that commit.");
+          System.exit(0);
+      }
+    }
+
+    private static void overwriteCurrentFileVersion(HashMap<String, String> trackedFiles, String fileName) {
+        File currentFile = new File(fileName);
+        checkIfFileExistsInCommit(trackedFiles, fileName);
+        String commitVersionBlobUID = trackedFiles.get(fileName);
+        blobs = blobsFromFile();
+        File commitVersion = blobs.get(commitVersionBlobUID);
+        writeContents(currentFile, readContents(commitVersion));
+    }
+
+    /**
+     * TODO: Takes the version of the file as it exists in the head commit and puts it in the working directory,
+     *  overwriting the version of the file that’s already there if there is one.
+     *  The new version of the file is not staged.
+     *  TODO: If the file does not exist in the previous commit, abort, printing the error message
+     *   File does not exist in that commit. Do not change the CWD.
+     * **/
+    public static void checkout(String fileName) {
+        Commit headCommit = getHeadCommit();
+        overwriteCurrentFileVersion(headCommit.getTrackedFiles(), fileName);
+    }
+
+    /**
+     * TODO: Takes the version of the file as it exists in the commit with the given id, and puts it in the working directory,
+     *  overwriting the version of the file that’s already there if there is one.
+     *  The new version of the file is not staged.
+     *  TODO: If no commit with the given id exists, print No commit with that id exists. Otherwise, if the file does not
+     *   exist in the given commit, print the same message as for failure case 1. Do not change the CWD.
+     * **/
+
+    public static void checkout(String commitUID, String fileName) {
+        Commit commit = getCommit(commitUID);
+        if (commit == null) {
+            System.out.println("No commit with that id exists.");
+            System.exit(0);
+        }
+        overwriteCurrentFileVersion(commit.getTrackedFiles(), fileName);
     }
 
 }

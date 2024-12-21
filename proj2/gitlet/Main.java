@@ -24,6 +24,13 @@ public class Main {
             case "log":
                 Repository.log();
                 break;
+            case "checkout":
+                if (args.length == 3) {
+                    Repository.checkout(args[2]);
+                } else if (args.length == 4) {
+                    Repository.checkout(args[1], args[3]);
+                }
+                break;
             default:
                 System.out.println("hello");
         }
