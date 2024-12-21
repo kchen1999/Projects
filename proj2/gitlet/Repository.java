@@ -303,7 +303,8 @@ public class Repository {
         if (commit.getParent1UID() != null) {
             System.out.println("Merge: " + commit.getParentUID().substring(0, 7) + commit.getParent1UID().substring(0, 7));
         }
-        System.out.println("Date: " + commit.getTimestamp());
+        String date = String.format("%1$ta %1$tb %1$te %1$tH:%1$tM:%1$tS %1$tY %1$tz", commit.getTimestamp());
+        System.out.println("Date: " + date);
         System.out.println(commit.getMessage());
         System.out.println("");
     }
