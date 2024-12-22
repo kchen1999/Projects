@@ -217,11 +217,13 @@ public class Repository {
         File branchesFile = join(GITLET_DIR, "branches");
         commits = commitsFromFile();
         currentBranch = currentBranchFromFile();
+
         Commit parentCommit = getHeadCommit();
         Commit newCommit = new Commit(message, parentCommit.getCommitUID());
         newCommit.updateFileContents(parentCommit.getTrackedFiles());
         commits.put(newCommit.getCommitUID(), newCommit);
         branches.put(currentBranch, newCommit.getCommitUID());
+        
         addCommitPrefix(newCommit.getCommitUID());
         writeObject(commitsFile, commits);
         writeObject(branchesFile, branches);
@@ -250,11 +252,39 @@ public class Repository {
         return isCurrentlyTrackedByCurrentCommit(headCommitBlobUID) && isIdenticalFile(headCommitBlobUID, blobUID);
     }
 
+    private static void removeFileStagedForAddition(String fileName) {
+        File additionsFile = join(GITLET_DIR, "stagingArea", "additions");
+        additions.remove(fileName);
+        writeObject(additionsFile, additions);
+    }
+
+    private static void removeFileStagedForRemoval(String fileName) {
+        File removalsFile = join(GITLET_DIR, "stagingArea", "removals");
+        removals.remove(fileName);
+        writeObject(removalsFile, removals);
+    }
+
+    private static void stageFileForAddition(String fileName, String blobUID) {
+        File additionsFile = join(GITLET_DIR, "stagingArea", "additions");
+        additions.put(fileName, blobUID);
+        writeObject(additionsFile, additions);
+    }
+
+    private static void stageFileForRemoval(String fileName, String blobUID) {
+        File removalsFile = join(GITLET_DIR, "stagingArea", "removals");
+        removals.put(fileName, blobUID);
+        writeObject(removalsFile, removals);
+    }
+
+    private static String getCurrentVersionBlobUID(String fileName) {
+        Commit headCommit = getHeadCommit();
+        HashMap<String, String> headCommitTrackedFiles = headCommit.getTrackedFiles();
+        return headCommitTrackedFiles.get(fileName);
+    }
+
     public static void add(String fileName) {
         checkGitletDirIsInitialized();
         File file = new File(fileName);
-        File additionsFile = join(GITLET_DIR, "stagingArea", "additions");
-        File removalsFile = join(GITLET_DIR, "stagingArea", "removals");
         File blobMapFile = join(GITLET_DIR, "blobMap");
         if (!file.exists()) {
             System.out.println("File does not exist");
@@ -264,28 +294,22 @@ public class Repository {
         removals = removalsFromFile();
         blobMap = blobMapFromFile();
 
-        Commit headCommit = getHeadCommit();
-        HashMap<String, String> headCommitTrackedFiles = headCommit.getTrackedFiles();
-        String headCommitVersionBlobUID = headCommitTrackedFiles.get(fileName);
+        String currentVersionBlobUID = getCurrentVersionBlobUID(fileName);
         String blobUID = sha1(readContents(file));
 
-        if (isIdenticalToCurrentCommitVersion(headCommitVersionBlobUID, blobUID)) {
+        if (isIdenticalToCurrentCommitVersion(currentVersionBlobUID, blobUID)) {
             if (additions.containsKey(fileName)) {
-                additions.remove(fileName);
-                writeObject(additionsFile, additions);
+                removeFileStagedForAddition(fileName);
             }
             if (removals.containsKey(fileName)) {
-                removals.remove(fileName);
-                writeObject(removalsFile, removals);
+                removeFileStagedForRemoval(fileName);
             }
             return;
         }
+        stageFileForAddition(fileName, blobUID);
         File fileCopy = join(GITLET_DIR, "blobs", blobUID); //need to make of copy file contents instead of adding file pointer directly!
         writeContents(fileCopy, readContents(file));
-
-        additions.put(fileName, blobUID);
         blobMap.put(blobUID, fileCopy);
-        writeObject(additionsFile, additions);
         writeObject(blobMapFile, blobMap);
     }
 
@@ -307,6 +331,32 @@ public class Repository {
         System.out.println("Date: " + date);
         System.out.println(commit.getMessage());
         System.out.println("");
+    }
+
+    /*
+    * TODO: Unstage the file if it is currently staged for addition
+    *  If the file is tracked in the current commit, stage it for removal and remove the file from the working
+    *  directory if the user has not already done so (do not remove it unless it is tracked in the current commit).
+    *  If the file is neither staged nor tracked by the head commit, print the error message No reason to remove
+    *  the file.
+    * */
+    public static void rm(String fileName) {
+        checkGitletDirIsInitialized();
+        additions = additionsFromFile();
+        removals = removalsFromFile();
+        String currentVersionBlobUID = getCurrentVersionBlobUID(fileName);
+        if (additions.containsKey(fileName)) {
+            removeFileStagedForAddition(fileName);
+        } else if (currentVersionBlobUID != null) {
+            File f = new File(fileName);
+            if (f.exists()) {
+                f.delete();
+            }
+            stageFileForRemoval(fileName, currentVersionBlobUID);
+        } else {
+            System.out.println("No reasons to remove the file.");
+            System.exit(0);
+        }
     }
 
     public static void log() {

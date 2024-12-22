@@ -97,8 +97,8 @@ public class Commit implements Serializable {
             this.trackedFiles.put(fileName, trackedFiles.get(fileName));
         }
         HashMap<String, String> additions = additionsFromFile();
-        HashMap<String, String> filesStagedForRemoval = removalsFromFile();
-        if (additions.isEmpty()) {
+        HashMap<String, String> removals = removalsFromFile();
+        if (additions.isEmpty() && removals.isEmpty()) {
             System.out.println("No changes added to the commit");
             System.exit(0);
         }
@@ -106,7 +106,7 @@ public class Commit implements Serializable {
             String blobUID = additions.get(fileName);
             this.trackedFiles.put(fileName, blobUID);
         }
-        for (String fileName: filesStagedForRemoval.keySet()) {
+        for (String fileName: removals.keySet()) {
             this.trackedFiles.remove(fileName);
         }
         setCommitUID();
