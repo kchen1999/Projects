@@ -45,6 +45,9 @@ public class Main {
             case "rm":
                 Repository.rm(args[1]);
                 break;
+            case "status":
+                Repository.status();
+                break;
             default:
                 System.out.println("No command with that name exists.");
                 System.exit(0);

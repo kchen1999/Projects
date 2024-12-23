@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.TreeMap;
 import static gitlet.Utils.*;
 
 /** Represents a gitlet commit object.
@@ -96,8 +97,8 @@ public class Commit implements Serializable {
         for (String fileName : trackedFiles.keySet()) {
             this.trackedFiles.put(fileName, trackedFiles.get(fileName));
         }
-        HashMap<String, String> additions = additionsFromFile();
-        HashMap<String, String> removals = removalsFromFile();
+        TreeMap<String, String> additions = additionsFromFile();
+        TreeMap<String, String> removals = removalsFromFile();
         if (additions.isEmpty() && removals.isEmpty()) {
             System.out.println("No changes added to the commit.");
             System.exit(0);
@@ -112,14 +113,14 @@ public class Commit implements Serializable {
         setCommitUID();
     }
 
-    private static HashMap additionsFromFile() {
+    private static TreeMap additionsFromFile() {
         File additionsFile = join(".gitlet", "stagingArea", "additions");
-        return readObject(additionsFile, HashMap.class);
+        return readObject(additionsFile, TreeMap.class);
     }
 
-    private static HashMap removalsFromFile() {
+    private static TreeMap removalsFromFile() {
         File removalsFile = join(".gitlet", "stagingArea", "removals");
-        return readObject(removalsFile, HashMap.class);
+        return readObject(removalsFile, TreeMap.class);
     }
 
     public HashMap<String, String> getTrackedFiles() {
