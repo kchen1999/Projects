@@ -66,7 +66,7 @@ public class Commit implements Serializable {
 
     public Commit(String message, String parent) {
         if (message.equals("")) {
-            System.out.println("Please enter a commit message");
+            System.out.println("Please enter a commit message.");
             System.exit(0);
         }
         this.message = message;
@@ -99,7 +99,7 @@ public class Commit implements Serializable {
         HashMap<String, String> additions = additionsFromFile();
         HashMap<String, String> removals = removalsFromFile();
         if (additions.isEmpty() && removals.isEmpty()) {
-            System.out.println("No changes added to the commit");
+            System.out.println("No changes added to the commit.");
             System.exit(0);
         }
         for (String fileName : additions.keySet()) {

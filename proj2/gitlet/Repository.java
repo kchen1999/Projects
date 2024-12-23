@@ -223,7 +223,7 @@ public class Repository {
         newCommit.updateFileContents(parentCommit.getTrackedFiles());
         commits.put(newCommit.getCommitUID(), newCommit);
         branches.put(currentBranch, newCommit.getCommitUID());
-        
+
         addCommitPrefix(newCommit.getCommitUID());
         writeObject(commitsFile, commits);
         writeObject(branchesFile, branches);
@@ -313,6 +313,32 @@ public class Repository {
         writeObject(blobMapFile, blobMap);
     }
 
+    /*
+     * TODO: Unstage the file if it is currently staged for addition
+     *  If the file is tracked in the current commit, stage it for removal and remove the file from the working
+     *  directory if the user has not already done so (do not remove it unless it is tracked in the current commit).
+     *  If the file is neither staged nor tracked by the head commit, print the error message No reason to remove
+     *  the file.
+     * */
+    public static void rm(String fileName) {
+        checkGitletDirIsInitialized();
+        additions = additionsFromFile();
+        removals = removalsFromFile();
+        String currentVersionBlobUID = getCurrentVersionBlobUID(fileName);
+        if (additions.containsKey(fileName)) {
+            removeFileStagedForAddition(fileName);
+        } else if (currentVersionBlobUID != null) {
+            File f = new File(fileName);
+            if (f.exists()) {
+                f.delete();
+            }
+            stageFileForRemoval(fileName, currentVersionBlobUID);
+        } else {
+            System.out.println("No reasons to remove the file.");
+            System.exit(0);
+        }
+    }
+
     /**
      * TODO: Starting at the current head commit, display information about each commit backwards along the commit tree until the
      *  initial commit, following the first parent commit links, ignoring any second parents found in merge commits.
@@ -331,32 +357,6 @@ public class Repository {
         System.out.println("Date: " + date);
         System.out.println(commit.getMessage());
         System.out.println("");
-    }
-
-    /*
-    * TODO: Unstage the file if it is currently staged for addition
-    *  If the file is tracked in the current commit, stage it for removal and remove the file from the working
-    *  directory if the user has not already done so (do not remove it unless it is tracked in the current commit).
-    *  If the file is neither staged nor tracked by the head commit, print the error message No reason to remove
-    *  the file.
-    * */
-    public static void rm(String fileName) {
-        checkGitletDirIsInitialized();
-        additions = additionsFromFile();
-        removals = removalsFromFile();
-        String currentVersionBlobUID = getCurrentVersionBlobUID(fileName);
-        if (additions.containsKey(fileName)) {
-            removeFileStagedForAddition(fileName);
-        } else if (currentVersionBlobUID != null) {
-            File f = new File(fileName);
-            if (f.exists()) {
-                f.delete();
-            }
-            stageFileForRemoval(fileName, currentVersionBlobUID);
-        } else {
-            System.out.println("No reasons to remove the file.");
-            System.exit(0);
-        }
     }
 
     public static void log() {
