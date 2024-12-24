@@ -48,6 +48,9 @@ public class Main {
             case "status":
                 Repository.status();
                 break;
+            case "branch":
+                Repository.branch(args[1]);
+                break;
             default:
                 System.out.println("No command with that name exists.");
                 System.exit(0);

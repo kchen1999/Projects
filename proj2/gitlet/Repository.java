@@ -1,11 +1,8 @@
 package gitlet;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.TreeMap;
-import java.util.Date;
-import java.util.Formatter;
+import java.util.*;
+
 import static gitlet.Utils.*;
 
 // TODO: any imports you need here
@@ -35,9 +32,9 @@ public class Repository {
     public static HashMap<String, ArrayList<String>> commitPrefixes= new HashMap<>();
     /** Mapping of branch names to references to commits */
     public static TreeMap<String, String> branches = new TreeMap<>();
-    /** Staging area (files staged for addition): Mapping of file names to references to files */
+    /** Staging area (files staged for addition): Mapping of file names to blob references */
     public static TreeMap<String, String> additions = new TreeMap<>();
-    /** Staging area (files staged for removal): Mapping of file names to references to files */
+    /** Staging area (files staged for removal): Mapping of file names to blob references */
     public static TreeMap<String, String> removals = new TreeMap<>();
     /** Mapping of blob references to file contents **/
     public static HashMap<String, File> blobMap = new HashMap<>();
@@ -227,6 +224,7 @@ public class Repository {
         File commitVersion = blobMap.get(commitVersionBlobUID);
         writeContents(currentFile, readContents(commitVersion));
     }
+    
 
     private static void printCommitIDErrorMessage() {
         System.out.println("No commit with that id exists.");
@@ -254,6 +252,75 @@ public class Repository {
         printCommitIDErrorMessage();
         return null;
     }
+
+    private static boolean isStagedForAddition(String fileName, TreeMap<String, String> additions) {
+        return additions.containsKey(fileName);
+    }
+
+    private static boolean isStagedForRemoval(String fileName, TreeMap<String, String> removals) {
+        return removals.containsKey(fileName);
+    }
+
+    private static HashMap<String, String> getCurrentCommitTrackedFiles() {
+        return getHeadCommit().getTrackedFiles();
+    }
+
+    private static boolean isTrackedByCurrentCommit(String fileName) {
+        return getCurrentCommitTrackedFiles().containsKey(fileName);
+    }
+
+    /*
+     *  TODO: A file in the working directory is “modified but not staged” if it is
+     *   Tracked in the current commit, changed in the working directory, but not staged; or
+     *   Staged for addition, but with different contents than in the working directory; or
+     *   Staged for addition, but deleted in the working directory; or
+     *   Not staged for removal, but tracked in the current commit and deleted from the working directory.
+
+     */
+
+
+    private static TreeMap<String, String> getModificationsNotStagedForCommit () {
+        TreeMap<String, String> map = new TreeMap<>();
+        additions = additionsFromFile();
+        removals = removalsFromFile();
+        List<String> wkDirFiles = plainFilenamesIn(CWD);
+        for (String fileName : wkDirFiles) {
+            File f = new File(fileName);
+            String blobUID = sha1(readContents(f));
+            if (isTrackedByCurrentCommit(fileName) && !isIdenticalFile(getCurrentVersionBlobUID(fileName), blobUID)
+                    && !isStagedForAddition(fileName, additions)) {
+                map.put(fileName, "modified");
+            } else if (isStagedForAddition(fileName, additions) && !isIdenticalFile(additions.get(fileName), blobUID)) {
+                map.put(fileName, "modified");
+            }
+        }
+        for (String fileName : additions.keySet()) {
+            if (!wkDirFiles.contains(fileName)) {
+                map.put(fileName, "deleted");
+            }
+        }
+        for (String fileName : getCurrentCommitTrackedFiles().keySet()) {
+            if (!wkDirFiles.contains(fileName) && !isStagedForRemoval(fileName, removals)) {
+                map.put(fileName, "deleted");
+            }
+        }
+        return map;
+    }
+
+    private static ArrayList<String> getUntrackedFiles() {
+        ArrayList<String> list = new ArrayList<>();
+        List<String> wkDirFiles = plainFilenamesIn(CWD);
+        additions = additionsFromFile();
+        removals = removalsFromFile();
+
+        for (String fileName : wkDirFiles) {
+            if (!isTrackedByCurrentCommit(fileName) && !isStagedForAddition(fileName, additions)) {
+                list.add(fileName);
+            }
+        }
+        return list;
+    }
+
 
     /*
     * TODO: create initial commit
@@ -353,10 +420,10 @@ public class Repository {
         String blobUID = sha1(readContents(file));
 
         if (isIdenticalToCurrentCommitVersion(currentVersionBlobUID, blobUID)) {
-            if (additions.containsKey(fileName)) {
+            if (isStagedForAddition(fileName, additions)) {
                 removeFileStagedForAddition(fileName);
             }
-            if (removals.containsKey(fileName)) {
+            if (isStagedForRemoval(fileName, removals)) {
                 removeFileStagedForRemoval(fileName);
             }
             return;
@@ -380,7 +447,7 @@ public class Repository {
         additions = additionsFromFile();
         removals = removalsFromFile();
         String currentVersionBlobUID = getCurrentVersionBlobUID(fileName);
-        if (additions.containsKey(fileName)) {
+        if (isStagedForAddition(fileName, additions)) {
             removeFileStagedForAddition(fileName);
         } else if (currentVersionBlobUID != null) {
             File f = new File(fileName);
@@ -416,13 +483,19 @@ public class Repository {
     /**
      * TODO: Displays what branches currently exist, and marks the current branch with a *.
      *  Also displays what files have been staged for addition or removal.
+     *  The final category (“Untracked Files”) is for files present in the working directory but neither staged
+     *  for addition nor tracked. This includes files that have been staged for removal, but then re-created
+     *  without Gitlet’s knowledge.
      */
 
     public static void status() {
+        checkGitletDirIsInitialized();
         branches = branchesFromFile();
         additions = additionsFromFile();
         removals = removalsFromFile();
         currentBranch = currentBranchFromFile();
+        TreeMap<String, String> unstagedModifications = getModificationsNotStagedForCommit();
+        ArrayList<String> untrackedFiles = getUntrackedFiles();
         System.out.println("=== Branches ===");
         for (String branch : branches.keySet()) {
             if (branch.equals(currentBranch)) {
@@ -440,6 +513,16 @@ public class Repository {
         System.out.println("=== Removed Files ===");
         for (String removal : removals.keySet()) {
             System.out.println(removal);
+        }
+        System.out.println("");
+        System.out.println("=== Modifications Not Staged For Commit ===");
+        for (String fileName : unstagedModifications.keySet()) {
+            System.out.println(fileName + " (" + unstagedModifications.get(fileName) + ")");
+        }
+        System.out.println("");
+        System.out.println("=== Untracked Files ===");
+        for (String fileName : untrackedFiles) {
+            System.out.println(fileName);
         }
         System.out.println("");
     }
@@ -477,6 +560,23 @@ public class Repository {
         overwriteCurrentFileVersion(commit.getTrackedFiles(), fileName);
     }
 
+    /**
+     * TODO: Takes all files in the commit at the head of the given branch, and puts them in the working directory,
+     *  overwriting the versions of the files that are already there if they exist.
+     *  Also, at the end of this command, the given branch will now be considered the current branch (HEAD).
+     *  Any files that are tracked in the current branch but are not present in the checked-out branch are deleted.
+     *  The staging area is cleared, unless the checked-out branch is the current branch
+     *  If no branch with that name exists, print No such branch exists.
+     *  If that branch is the current branch, print No need to checkout the current branch.
+     *  If a working file is untracked in the current branch and would be overwritten by the checkout,
+     *  print There is an untracked file in the way; delete it, or add and commit it first.
+     *  and exit; perform this check before doing anything else. Do not change the CWD.
+     */
+    public static void checkoutBranch(String branchName) {
+        checkGitletDirIsInitialized();
+
+    }
+
     /*
     * TODO: Creates a new branch with the given name, and points it at the current head commit.
     *  A branch is nothing more than a name for a reference (a SHA-1 identifier) to a commit node.
@@ -484,7 +584,16 @@ public class Repository {
     *  If a branch with the given name already exists, print the error message A branch with that name already exists.
      */
     public static void branch(String branchName) {
-
+        checkGitletDirIsInitialized();
+        File branchesFile = join(GITLET_DIR, "branches");
+        branches = branchesFromFile();
+        if (branches.containsKey(branchName)) {
+            System.out.println("A branch with that name already exists.");
+            System.exit(0);
+        }
+        String currentCommitID = getHeadCommitId();
+        branches.put(branchName, currentCommitID);
+        writeObject(branchesFile, branches);
     }
 
 }
