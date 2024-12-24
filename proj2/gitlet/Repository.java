@@ -216,15 +216,41 @@ public class Repository {
         }
     }
 
+    private static HashMap<String, String> getBranchCommitFiles(String branchName) {
+        branches = branchesFromFile();
+        commits = commitsFromFile();
+        String commitReference = branches.get(branchName);
+        return commits.get(commitReference).getTrackedFiles();
+    }
+
     private static void overwriteCurrentFileVersion(HashMap<String, String> trackedFiles, String fileName) {
         File currentFile = new File(fileName);
+        blobMap = blobMapFromFile();
         checkIfFileExistsInCommit(trackedFiles, fileName);
         String commitVersionBlobUID = trackedFiles.get(fileName);
-        blobMap = blobMapFromFile();
         File commitVersion = blobMap.get(commitVersionBlobUID);
         writeContents(currentFile, readContents(commitVersion));
     }
-    
+
+    private static void overwriteCurrentWorkingDirectory(HashMap<String, String> branchCommitTrackedFiles) {
+        for (String fileName : branchCommitTrackedFiles.keySet()) {
+            File currentFile = new File(fileName);
+            blobMap = blobMapFromFile();
+            String commitVersionBlobUID = branchCommitTrackedFiles.get(fileName);
+            File commitVersion = blobMap.get(commitVersionBlobUID);
+            writeContents(currentFile, readContents(commitVersion));
+        }
+    }
+
+    private static void removeFilesNotInCheckedOutBranch(HashMap<String, String> currentCommitTrackedFiles,
+                                                                    HashMap<String, String> branchCommitTrackedFiles) {
+        for (String fileName : currentCommitTrackedFiles.keySet()) {
+            if (!branchCommitTrackedFiles.containsKey(fileName)) {
+                File f = new File(fileName);
+                f.delete();
+            }
+        }
+    }
 
     private static void printCommitIDErrorMessage() {
         System.out.println("No commit with that id exists.");
@@ -574,7 +600,27 @@ public class Repository {
      */
     public static void checkoutBranch(String branchName) {
         checkGitletDirIsInitialized();
-
+        branches = branchesFromFile();
+        File currentBranchFile = join(GITLET_DIR, "currentBranch");
+        currentBranch = currentBranchFromFile();
+        ArrayList<String> untrackedFiles = getUntrackedFiles();
+        if (!branches.containsKey(branchName)) {
+            System.out.println("No such branch exists.");
+            System.exit(0);
+        } else if (branchName.equals(currentBranch)) {
+            System.out.println("No need to checkout the current branch.");
+            System.exit(0);
+        } else if (untrackedFiles.size() != 0) {
+            System.out.println("There is an untracked file in the way; delete it, or add and commit it first.");
+            System.exit(0);
+        }
+        HashMap<String, String> currentCommitTrackedFiles = getCurrentCommitTrackedFiles();
+        HashMap<String, String> branchCommitTrackedFiles = getBranchCommitFiles(branchName);
+        overwriteCurrentWorkingDirectory(branchCommitTrackedFiles);
+        removeFilesNotInCheckedOutBranch(currentCommitTrackedFiles, branchCommitTrackedFiles);
+        currentBranch = branchName;
+        writeObject(currentBranchFile, currentBranch);
+        clearStagingArea();
     }
 
     /*

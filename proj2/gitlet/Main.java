@@ -40,6 +40,8 @@ public class Main {
                         System.exit(0);
                     }
                     Repository.checkout(args[1], args[3]);
+                } else if (args.length == 2) {
+                    Repository.checkoutBranch(args[1]);
                 }
                 break;
             case "rm":
