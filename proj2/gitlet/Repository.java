@@ -223,35 +223,6 @@ public class Repository {
         return commits.get(commitReference).getTrackedFiles();
     }
 
-    private static void overwriteCurrentFileVersion(HashMap<String, String> trackedFiles, String fileName) {
-        File currentFile = new File(fileName);
-        blobMap = blobMapFromFile();
-        checkIfFileExistsInCommit(trackedFiles, fileName);
-        String commitVersionBlobUID = trackedFiles.get(fileName);
-        File commitVersion = blobMap.get(commitVersionBlobUID);
-        writeContents(currentFile, readContents(commitVersion));
-    }
-
-    private static void overwriteCurrentWorkingDirectory(HashMap<String, String> branchCommitTrackedFiles) {
-        for (String fileName : branchCommitTrackedFiles.keySet()) {
-            File currentFile = new File(fileName);
-            blobMap = blobMapFromFile();
-            String commitVersionBlobUID = branchCommitTrackedFiles.get(fileName);
-            File commitVersion = blobMap.get(commitVersionBlobUID);
-            writeContents(currentFile, readContents(commitVersion));
-        }
-    }
-
-    private static void removeFilesNotInCheckedOutBranch(HashMap<String, String> currentCommitTrackedFiles,
-                                                                    HashMap<String, String> branchCommitTrackedFiles) {
-        for (String fileName : currentCommitTrackedFiles.keySet()) {
-            if (!branchCommitTrackedFiles.containsKey(fileName)) {
-                File f = new File(fileName);
-                f.delete();
-            }
-        }
-    }
-
     private static void printCommitIDErrorMessage() {
         System.out.println("No commit with that id exists.");
         System.exit(0);
@@ -294,59 +265,6 @@ public class Repository {
     private static boolean isTrackedByCurrentCommit(String fileName) {
         return getCurrentCommitTrackedFiles().containsKey(fileName);
     }
-
-    /*
-     *  TODO: A file in the working directory is “modified but not staged” if it is
-     *   Tracked in the current commit, changed in the working directory, but not staged; or
-     *   Staged for addition, but with different contents than in the working directory; or
-     *   Staged for addition, but deleted in the working directory; or
-     *   Not staged for removal, but tracked in the current commit and deleted from the working directory.
-
-     */
-
-
-    private static TreeMap<String, String> getModificationsNotStagedForCommit () {
-        TreeMap<String, String> map = new TreeMap<>();
-        additions = additionsFromFile();
-        removals = removalsFromFile();
-        List<String> wkDirFiles = plainFilenamesIn(CWD);
-        for (String fileName : wkDirFiles) {
-            File f = new File(fileName);
-            String blobUID = sha1(readContents(f));
-            if (isTrackedByCurrentCommit(fileName) && !isIdenticalFile(getCurrentVersionBlobUID(fileName), blobUID)
-                    && !isStagedForAddition(fileName, additions)) {
-                map.put(fileName, "modified");
-            } else if (isStagedForAddition(fileName, additions) && !isIdenticalFile(additions.get(fileName), blobUID)) {
-                map.put(fileName, "modified");
-            }
-        }
-        for (String fileName : additions.keySet()) {
-            if (!wkDirFiles.contains(fileName)) {
-                map.put(fileName, "deleted");
-            }
-        }
-        for (String fileName : getCurrentCommitTrackedFiles().keySet()) {
-            if (!wkDirFiles.contains(fileName) && !isStagedForRemoval(fileName, removals)) {
-                map.put(fileName, "deleted");
-            }
-        }
-        return map;
-    }
-
-    private static ArrayList<String> getUntrackedFiles() {
-        ArrayList<String> list = new ArrayList<>();
-        List<String> wkDirFiles = plainFilenamesIn(CWD);
-        additions = additionsFromFile();
-        removals = removalsFromFile();
-
-        for (String fileName : wkDirFiles) {
-            if (!isTrackedByCurrentCommit(fileName) && !isStagedForAddition(fileName, additions)) {
-                list.add(fileName);
-            }
-        }
-        return list;
-    }
-
 
     /*
     * TODO: create initial commit
@@ -505,6 +423,53 @@ public class Repository {
             headCommit = commits.get(parentCommitUID);
         }
     }
+    /*
+     *  TODO: A file in the working directory is “modified but not staged” if it is
+     *   Tracked in the current commit, changed in the working directory, but not staged; or
+     *   Staged for addition, but with different contents than in the working directory; or
+     *   Staged for addition, but deleted in the working directory; or
+     *   Not staged for removal, but tracked in the current commit and deleted from the working directory.
+     */
+    private static TreeMap<String, String> getModificationsNotStagedForCommit () {
+        TreeMap<String, String> map = new TreeMap<>();
+        additions = additionsFromFile();
+        removals = removalsFromFile();
+        List<String> wkDirFiles = plainFilenamesIn(CWD);
+        for (String fileName : wkDirFiles) {
+            File f = new File(fileName);
+            String blobUID = sha1(readContents(f));
+            if (isTrackedByCurrentCommit(fileName) && !isIdenticalFile(getCurrentVersionBlobUID(fileName), blobUID)
+                    && !isStagedForAddition(fileName, additions)) {
+                map.put(fileName, "modified");
+            } else if (isStagedForAddition(fileName, additions) && !isIdenticalFile(additions.get(fileName), blobUID)) {
+                map.put(fileName, "modified");
+            }
+        }
+        for (String fileName : additions.keySet()) {
+            if (!wkDirFiles.contains(fileName)) {
+                map.put(fileName, "deleted");
+            }
+        }
+        for (String fileName : getCurrentCommitTrackedFiles().keySet()) {
+            if (!wkDirFiles.contains(fileName) && !isStagedForRemoval(fileName, removals)) {
+                map.put(fileName, "deleted");
+            }
+        }
+        return map;
+    }
+
+    private static ArrayList<String> getUntrackedFiles() {
+        ArrayList<String> list = new ArrayList<>();
+        List<String> wkDirFiles = plainFilenamesIn(CWD);
+        additions = additionsFromFile();
+        removals = removalsFromFile();
+        for (String fileName : wkDirFiles) {
+            if (!isTrackedByCurrentCommit(fileName) && !isStagedForAddition(fileName, additions)) {
+                list.add(fileName);
+            }
+        }
+        return list;
+    }
 
     /**
      * TODO: Displays what branches currently exist, and marks the current branch with a *.
@@ -551,6 +516,35 @@ public class Repository {
             System.out.println(fileName);
         }
         System.out.println("");
+    }
+
+    private static void overwriteCurrentFileVersion(HashMap<String, String> trackedFiles, String fileName) {
+        File currentFile = new File(fileName);
+        blobMap = blobMapFromFile();
+        checkIfFileExistsInCommit(trackedFiles, fileName);
+        String commitVersionBlobUID = trackedFiles.get(fileName);
+        File commitVersion = blobMap.get(commitVersionBlobUID);
+        writeContents(currentFile, readContents(commitVersion));
+    }
+
+    private static void overwriteCurrentWorkingDirectory(HashMap<String, String> branchCommitTrackedFiles) {
+        for (String fileName : branchCommitTrackedFiles.keySet()) {
+            File currentFile = new File(fileName);
+            blobMap = blobMapFromFile();
+            String commitVersionBlobUID = branchCommitTrackedFiles.get(fileName);
+            File commitVersion = blobMap.get(commitVersionBlobUID);
+            writeContents(currentFile, readContents(commitVersion));
+        }
+    }
+
+    private static void removeTrackedFilesNotInCommit(HashMap<String, String> currentCommitTrackedFiles,
+                                                         HashMap<String, String> givenCommitTrackedFiles) {
+        for (String fileName : currentCommitTrackedFiles.keySet()) {
+            if (!givenCommitTrackedFiles.containsKey(fileName)) {
+                File f = new File(fileName);
+                f.delete();
+            }
+        }
     }
 
     /**
@@ -614,10 +608,9 @@ public class Repository {
             System.out.println("There is an untracked file in the way; delete it, or add and commit it first.");
             System.exit(0);
         }
-        HashMap<String, String> currentCommitTrackedFiles = getCurrentCommitTrackedFiles();
         HashMap<String, String> branchCommitTrackedFiles = getBranchCommitFiles(branchName);
         overwriteCurrentWorkingDirectory(branchCommitTrackedFiles);
-        removeFilesNotInCheckedOutBranch(currentCommitTrackedFiles, branchCommitTrackedFiles);
+        removeTrackedFilesNotInCommit(getCurrentCommitTrackedFiles(), branchCommitTrackedFiles);
         currentBranch = branchName;
         writeObject(currentBranchFile, currentBranch);
         clearStagingArea();
@@ -640,6 +633,39 @@ public class Repository {
         String currentCommitID = getHeadCommitId();
         branches.put(branchName, currentCommitID);
         writeObject(branchesFile, branches);
+    }
+
+    /*
+    * TODO: Checks out all the files tracked by the given commit. Removes tracked files that are not present in
+    *  that commit. Also moves the current branch’s head to that commit node. See the intro for an example of
+    *  what happens to the head pointer after using reset. The [commit id] may be abbreviated as for checkout.
+    *  The staging area is cleared. The command is essentially checkout of an arbitrary commit that also changes
+    *  the current branch head
+    *
+     */
+    public static void reset(String commitUID) {
+        checkGitletDirIsInitialized();
+        if (commitUID.length() < 40) {
+            commitUID = getFullCommitUID(commitUID);
+        }
+        Commit commit = getCommit(commitUID);
+        if (commit == null) {
+            printCommitIDErrorMessage();
+        }
+        File branchesFile = join(GITLET_DIR, "branches");
+        branches = branchesFromFile();
+        currentBranch = currentBranchFromFile();
+        ArrayList<String> untrackedFiles = getUntrackedFiles();
+        if (untrackedFiles.size() != 0) {
+            System.out.println("There is an untracked file in the way; delete it, or add and commit it first.");
+            System.exit(0);
+        }
+        HashMap<String, String> givenCommitTrackedFiles = commit.getTrackedFiles();
+        overwriteCurrentWorkingDirectory(givenCommitTrackedFiles);
+        removeTrackedFilesNotInCommit(getCurrentCommitTrackedFiles(), givenCommitTrackedFiles);
+        branches.put(currentBranch, commitUID);
+        writeObject(branchesFile, branches);
+        clearStagingArea();
     }
 
 }
