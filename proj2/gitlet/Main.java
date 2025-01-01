@@ -62,6 +62,12 @@ public class Main {
             case "rm-branch":
                 Repository.rmBranch(args[1]);
                 break;
+            case "find":
+                Repository.find(args[1]);
+                break;
+            case "global-log":
+                Repository.globalLog();
+                break;
             default:
                 System.out.println("No command with that name exists.");
                 System.exit(0);

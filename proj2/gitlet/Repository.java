@@ -463,6 +463,45 @@ public class Repository {
             headCommit = commits.get(parentCommitUID);
         }
     }
+
+    /*
+    * TODO: Like log, except displays information about all commits ever made. The order of the commits does not
+    *  matter. Hint: there is a useful method in gitlet.Utils that will help you iterate over files within a
+    *  directory.
+     */
+
+    public static void globalLog() {
+        checkGitletDirIsInitialized();
+        commits = commitsFromFile();
+        for (String commitUID : commits.keySet()) {
+            Commit commit = commits.get(commitUID);
+            printIndividualCommit(commitUID, commit);
+        }
+    }
+
+    /*
+    * TODO: Prints out the ids of all commits that have the given commit message, one per line. If there are
+    *  multiple such commits, it prints the ids out on separate lines. The commit message is a single operand;
+    *  to indicate a multiword message, put the operand in quotation marks, as for the commit command below.
+    *   Hint: the hint for this command is the same as the one for global-log.
+     */
+
+    public static void find(String message) {
+        checkGitletDirIsInitialized();
+        commits = commitsFromFile();
+        Boolean found = false;
+        for (String commitUID : commits.keySet()) {
+            Commit commit = commits.get(commitUID);
+            if (message.equals(commit.getMessage())) {
+                System.out.println(message);
+                found = true;
+            }
+        }
+        if (!found) {
+            System.out.println("Found no commit with that message.");
+        }
+    }
+
     /*
      *  TODO: A file in the working directory is “modified but not staged” if it is
      *   Tracked in the current commit, changed in the working directory, but not staged; or
@@ -692,6 +731,7 @@ public class Repository {
      */
 
     public static void rmBranch(String branchName) {
+        checkGitletDirIsInitialized();
         branches = branchesFromFile();
         currentBranch = currentBranchFromFile();
         File branchesFile = join(GITLET_DIR, "branches");
