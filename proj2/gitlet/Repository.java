@@ -31,7 +31,7 @@ public class Repository {
     /** The abbreviated commit tree - mapping of 6 digit commit abbreviations to their commit reference*/
     public static HashMap<String, ArrayList<String>> commitPrefixes= new HashMap<>();
     /** Mapping of branch names to references to commits */
-    public static TreeMap<String, String> branches = new TreeMap<>();
+    public static TreeMap<String, Stack<String>> branches = new TreeMap<>();
     /** Staging area (files staged for addition): Mapping of file names to blob references */
     public static TreeMap<String, String> additions = new TreeMap<>();
     /** Staging area (files staged for removal): Mapping of file names to blob references */
@@ -62,7 +62,7 @@ public class Repository {
         return readObject(inFile, HashMap.class);
     }
 
-    private static TreeMap<String, String> branchesFromFile() {
+    private static TreeMap<String, Stack<String>> branchesFromFile() {
         File inFile = join(GITLET_DIR, "branches");
         return readObject(inFile, TreeMap.class);
     }
@@ -94,31 +94,10 @@ public class Repository {
         }
     }
 
-    public static void setUpPersistence () {
-        if (GITLET_DIR.exists()) {
-            System.out.println("A Gitlet version-control system already exists in the current directory.");
-            System.exit(0);
-        }
-        GITLET_DIR.mkdir();
-        File stagingAreaDir = join(GITLET_DIR, "stagingArea");
-        stagingAreaDir.mkdir();
-        File blobs = join(GITLET_DIR, "blobs");
-        blobs.mkdir();
-
-        File commitPrefixesFile = join(GITLET_DIR, "commitPrefixes");
-        File blobMapFile = join(GITLET_DIR, "blobMap");
-        File additionsFile = join(GITLET_DIR, "stagingArea", "additions");
-        File removalsFile = join(GITLET_DIR, "stagingArea", "removals");
-        writeObject(commitPrefixesFile, commitPrefixes);
-        writeObject(blobMapFile, blobMap);
-        writeObject(additionsFile, additions);
-        writeObject(removalsFile, removals);
-    }
-
     private static String getHeadCommitId() {
         branches = branchesFromFile();
         currentBranch = currentBranchFromFile();
-        return branches.get(currentBranch);
+        return branches.get(currentBranch).peek();
     }
 
     private static Commit getHeadCommit() {
@@ -197,18 +176,6 @@ public class Repository {
         return headCommitTrackedFiles.get(fileName);
     }
 
-    private static void printIndividualCommit(String commitHash, Commit commit) {
-        System.out.println("===");
-        System.out.println("commit " + commitHash);
-        if (commit.getParent1UID() != null) {
-            System.out.println("Merge: " + commit.getParentUID().substring(0, 7) + commit.getParent1UID().substring(0, 7));
-        }
-        String date = String.format("%1$ta %1$tb %1$te %1$tH:%1$tM:%1$tS %1$tY %1$tz", commit.getTimestamp());
-        System.out.println("Date: " + date);
-        System.out.println(commit.getMessage());
-        System.out.println("");
-    }
-
     private static void checkIfFileExistsInCommit(HashMap<String, String> trackedFiles, String fileName) {
         if (trackedFiles == null || !trackedFiles.containsKey(fileName)) {
             System.out.println("File does not exist in that commit.");
@@ -219,7 +186,7 @@ public class Repository {
     private static HashMap<String, String> getBranchCommitFiles(String branchName) {
         branches = branchesFromFile();
         commits = commitsFromFile();
-        String commitReference = branches.get(branchName);
+        String commitReference = branches.get(branchName).peek();
         return commits.get(commitReference).getTrackedFiles();
     }
 
@@ -258,12 +225,43 @@ public class Repository {
         return removals.containsKey(fileName);
     }
 
+    private static boolean noFilesStagedForAddition() {
+        additions = additionsFromFile();
+        return additions.isEmpty();
+    }
+
+    private static boolean noFilesStagedForRemoval() {
+        removals = removalsFromFile();
+        return removals.isEmpty();
+    }
+
     private static HashMap<String, String> getCurrentCommitTrackedFiles() {
         return getHeadCommit().getTrackedFiles();
     }
 
     private static boolean isTrackedByCurrentCommit(String fileName) {
         return getCurrentCommitTrackedFiles().containsKey(fileName);
+    }
+
+    public static void setUpPersistence () {
+        if (GITLET_DIR.exists()) {
+            System.out.println("A Gitlet version-control system already exists in the current directory.");
+            System.exit(0);
+        }
+        GITLET_DIR.mkdir();
+        File stagingAreaDir = join(GITLET_DIR, "stagingArea");
+        stagingAreaDir.mkdir();
+        File blobs = join(GITLET_DIR, "blobs");
+        blobs.mkdir();
+
+        File commitPrefixesFile = join(GITLET_DIR, "commitPrefixes");
+        File blobMapFile = join(GITLET_DIR, "blobMap");
+        File additionsFile = join(GITLET_DIR, "stagingArea", "additions");
+        File removalsFile = join(GITLET_DIR, "stagingArea", "removals");
+        writeObject(commitPrefixesFile, commitPrefixes);
+        writeObject(blobMapFile, blobMap);
+        writeObject(additionsFile, additions);
+        writeObject(removalsFile, removals);
     }
 
     /*
@@ -284,8 +282,10 @@ public class Repository {
         File currentBranchFile = join(GITLET_DIR, "currentBranch");
 
         Commit initialCommit = new Commit("initial commit", null);
+        Stack<String> parentPointers = new Stack();
+        parentPointers.push(initialCommit.getCommitUID());
         commits.put(initialCommit.getCommitUID(), initialCommit);
-        branches.put("master", initialCommit.getCommitUID());
+        branches.put("master", parentPointers);
         currentBranch = "master";
 
         writeObject(commitsFile, commits);
@@ -318,6 +318,29 @@ public class Repository {
      *  Every commit must have a non-blank message.
      *  If it doesn’t, print the error message Please enter a commit message.
      */
+    public static void mergeCommit(String givenBranch) {
+        File commitsFile = join(GITLET_DIR, "commits");
+        File branchesFile = join(GITLET_DIR, "branches");
+        commits = commitsFromFile();
+        currentBranch = currentBranchFromFile();
+
+        Commit parentCommit = getHeadCommit();
+        Commit newCommit = new Commit("Merged " + givenBranch + " into " + currentBranch, parentCommit.getCommitUID());
+        newCommit.updateFileContents(parentCommit.getTrackedFiles(), true);
+        commits.put(newCommit.getCommitUID(), newCommit);
+        Stack<String> parentPointers = branches.get(currentBranch);
+        if (!parentCommit.getIsSplitPoint()) {
+            parentPointers.pop();
+        }
+        parentPointers.push(newCommit.getCommitUID());
+        branches.put(currentBranch, parentPointers);
+
+        addCommitPrefix(newCommit.getCommitUID());
+        writeObject(commitsFile, commits);
+        writeObject(branchesFile, branches);
+        clearStagingArea();
+
+    }
 
     public static void commit(String message) {
         checkGitletDirIsInitialized();
@@ -328,9 +351,14 @@ public class Repository {
 
         Commit parentCommit = getHeadCommit();
         Commit newCommit = new Commit(message, parentCommit.getCommitUID());
-        newCommit.updateFileContents(parentCommit.getTrackedFiles());
+        newCommit.updateFileContents(parentCommit.getTrackedFiles(), false);
         commits.put(newCommit.getCommitUID(), newCommit);
-        branches.put(currentBranch, newCommit.getCommitUID());
+        Stack<String> parentPointers = branches.get(currentBranch);
+        if (!parentCommit.getIsSplitPoint()) {
+            parentPointers.pop();
+        }
+        parentPointers.push(newCommit.getCommitUID());
+        branches.put(currentBranch, parentPointers);
 
         addCommitPrefix(newCommit.getCommitUID());
         writeObject(commitsFile, commits);
@@ -403,6 +431,18 @@ public class Repository {
             System.out.println("No reasons to remove the file.");
             System.exit(0);
         }
+    }
+
+    private static void printIndividualCommit(String commitHash, Commit commit) {
+        System.out.println("===");
+        System.out.println("commit " + commitHash);
+        if (commit.getParent1UID() != null) {
+            System.out.println("Merge: " + commit.getParentUID().substring(0, 7) + commit.getParent1UID().substring(0, 7));
+        }
+        String date = String.format("%1$ta %1$tb %1$te %1$tH:%1$tM:%1$tS %1$tY %1$tz", commit.getTimestamp());
+        System.out.println("Date: " + date);
+        System.out.println(commit.getMessage());
+        System.out.println("");
     }
 
     /**
@@ -625,13 +665,44 @@ public class Repository {
     public static void branch(String branchName) {
         checkGitletDirIsInitialized();
         File branchesFile = join(GITLET_DIR, "branches");
+        File commitsFile = join(GITLET_DIR, "commits");
         branches = branchesFromFile();
         if (branches.containsKey(branchName)) {
             System.out.println("A branch with that name already exists.");
             System.exit(0);
         }
+        commits = commitsFromFile();
+        Commit currentCommit = getHeadCommit();
+        currentCommit.setSplitPoint();
+        commits.put(getHeadCommitId(), currentCommit);
         String currentCommitID = getHeadCommitId();
-        branches.put(branchName, currentCommitID);
+        Stack<String> parentPointers = new Stack<>();
+        parentPointers.push(currentCommitID);
+        branches.put(branchName, parentPointers);
+        writeObject(branchesFile, branches);
+        writeObject(commitsFile, commits);
+    }
+
+    /*
+    * TODO: Deletes the branch with the given name. This only means to delete the pointer associated with the
+    *  branch; it does not mean to delete all commits that were created under the branch, or anything like that.
+    *  If a branch with the given name does not exist, aborts. Print the error message A branch with that name
+    *  does not exist. If you try to remove the branch you’re currently on, aborts, printing the error message
+    *  Cannot remove the current branch.
+     */
+
+    public static void rmBranch(String branchName) {
+        branches = branchesFromFile();
+        currentBranch = currentBranchFromFile();
+        File branchesFile = join(GITLET_DIR, "branches");
+        if (!branches.containsKey(branchName)) {
+            System.out.println("A branch with that name does not exist.");
+            System.exit(0);
+        } else if (branchName.equals(currentBranch)) {
+            System.out.println("Cannot remove the current branch.");
+            System.exit(0);
+        }
+        branches.remove(branchName);
         writeObject(branchesFile, branches);
     }
 
@@ -663,9 +734,194 @@ public class Repository {
         HashMap<String, String> givenCommitTrackedFiles = commit.getTrackedFiles();
         overwriteCurrentWorkingDirectory(givenCommitTrackedFiles);
         removeTrackedFilesNotInCommit(getCurrentCommitTrackedFiles(), givenCommitTrackedFiles);
-        branches.put(currentBranch, commitUID);
+        Stack<String> parentPointers = branches.get(currentBranch);
+        parentPointers.pop();
+        parentPointers.push(commitUID);
+        branches.put(currentBranch, parentPointers);
         writeObject(branchesFile, branches);
         clearStagingArea();
+    }
+
+    /* TODO: The split point is a latest common ancestor of the current and given branch heads:
+        - A common ancestor is a commit to which there is a path (of 0 or more parent pointers) from both branch
+        heads.
+        - A latest common ancestor is a common ancestor that is not an ancestor of any other common ancestor.
+        For example, although the leftmost commit in the diagram above is a common ancestor of master and
+        branch, it is also an ancestor of the commit immediately to its right, so it is not a latest common
+        ancestor.
+        If the split point is the same commit as the given branch, then we do nothing; the merge is complete,
+        and the operation ends with the message Given branch is an ancestor of the current branch.
+        If the split point is the current branch, then the effect is to check out the given branch, and the
+        operation ends after printing the message Current branch fast-forwarded.
+        Otherwise, we continue with the steps below.
+     */
+
+    private static Commit findSplitPoint(String currentBranch, String givenBranch) {
+        branches = branchesFromFile();
+        commits = commitsFromFile();
+        Stack<String> currentBranchParents = branches.get(currentBranch);
+        Stack<String> givenBranchParents = branches.get(givenBranch);
+        String splitPointUID = null;
+        for (String s1 : currentBranchParents) {
+            if (splitPointUID != null) {
+                break;
+            }
+            for (String s2: givenBranchParents) {
+                if (s1.equals(s2)) {
+                    splitPointUID = s1;
+                    break;
+                }
+            }
+        }
+        String currentBranchCommitUID= branches.get(currentBranch).peek();
+        String givenBranchCommitUID= branches.get(givenBranch).peek();
+        if(splitPointUID.equals(givenBranchCommitUID)) {
+            System.out.println("Given branch is an ancestor of the current branch.");
+            System.exit(0);
+        }
+        if (splitPointUID.equals(currentBranchCommitUID)) {
+            checkoutBranch(givenBranch);
+            System.out.println("Current branch fast-forwarded.");
+            System.exit(0);
+        }
+        return getCommit(splitPointUID);
+    }
+
+    private static void mergeFileContents(String fileName, String currentBranchFileUID, String givenBranchFileUID) {
+        File f = join(CWD, fileName);
+        f.delete();
+        blobMap = blobMapFromFile();
+        if (currentBranchFileUID == null) {
+            writeContents(f, "<<<<<<< HEAD\n", "=======\n", readContents(blobMap.get(givenBranchFileUID)), ">>>>>>>");
+        } else if (givenBranchFileUID == null) {
+            writeContents(f, "<<<<<<< HEAD\n", readContents(blobMap.get(currentBranchFileUID)), "=======\n", ">>>>>>>");
+        } else {
+            writeContents(f, "<<<<<<< HEAD\n", readContents(blobMap.get(currentBranchFileUID)),
+                    "=======\n", readContents(blobMap.get(givenBranchFileUID)), ">>>>>>>");
+        }
+    }
+
+    /*
+    * TODO: Any files that have been modified in the given branch since the split point, but not modified in the
+    *  current branch since the split point should be changed to their versions in the given branch (checked out
+    *  from the commit at the front of the given branch). These files should then all be automatically staged.
+    *  To clarify, if a file is “modified in the given branch since the split point” this means the version of
+    *  the file as it exists in the commit at the front of the given branch has different content from the version
+    *  of the file at the split point. Remember: blobs are content addressable!
+        Any files that have been modified in the current branch but not in the given branch since the split point
+        should stay as they are.
+
+        Any files that have been modified in both the current and given branch in the same way
+        (i.e., both files now have the same content or were both removed) are left unchanged by the merge.
+      If a file was removed from both the current and given branch, but a file of the same name is present in
+      the working directory, it is left alone and continues to be absent (not tracked nor staged) in the merge.
+
+      Any files that were not present at the split point and are present only in the current branch should remain
+      as they are.
+
+      Any files that were not present at the split point and are present only in the given branch should be
+      checked out and staged.
+
+      Any files present at the split point, unmodified in the current branch, and absent in the given branch
+      should be removed (and untracked).
+
+      Any files present at the split point, unmodified in the given branch, and absent in the current branch
+      should remain absent.
+
+      Any files modified in different ways in the current and given branches are in conflict.
+      “Modified in different ways” can mean that the contents of both are changed and different from other,
+      * or the contents of one are changed and the other file is deleted, or the file was absent at the
+      * split point and has different contents in the given and current branches. In this case, replace the
+      * contents of the conflicted file with
+     */
+
+    public static void merge(String branchName) {
+        Boolean mergeConflict = false;
+        checkGitletDirIsInitialized();
+        branches = branchesFromFile();
+        currentBranch = currentBranchFromFile();
+        ArrayList<String> untrackedFiles = getUntrackedFiles();
+
+        if(!noFilesStagedForAddition() || !noFilesStagedForRemoval()) {
+            System.out.println("You have uncommitted changes.");
+            System.exit(0);
+        } else if (!branches.containsKey(branchName)) {
+            System.out.println("A branch with that name does not exist.");
+            System.exit(0);
+        } else if (branchName.equals(currentBranch)) {
+            System.out.println("Cannot merge a branch with itself.");
+            System.exit(0);
+        } else if (untrackedFiles.size() != 0) {
+            System.out.println("There is an untracked file in the way; delete it, or add and commit it first.");
+            System.exit(0);
+        }
+         /*
+    * TODO: Any files that have been modified in the given branch since the split point, but not modified in the
+    *  current branch since the split point should be changed to their versions in the given branch (checked out
+    *  from the commit at the front of the given branch). These files should then all be automatically staged.
+    *  To clarify, if a file is “modified in the given branch since the split point” this means the version of
+    *  the file as it exists in the commit at the front of the given branch has different content from the version
+    *  of the file at the split point. Remember: blobs are content addressable!
+        Any files that have been modified in the current branch but not in the given branch since the split point
+        should stay as they are.
+        * TODO: If merge would generate an error because the commit that it does has no changes in it, just let the normal commit error message
+        * for this go through.
+          */
+        Commit splitPoint = findSplitPoint(currentBranch, branchName);
+        HashMap<String, String> splitPointCommitFiles = splitPoint.getTrackedFiles();
+        HashMap<String, String> currentBranchCommitFiles = getCurrentCommitTrackedFiles();
+        HashMap<String, String> givenBranchCommitFiles = getBranchCommitFiles(branchName);
+        for (String fileName : splitPointCommitFiles.keySet()) {
+            String splitPointFileUID = splitPointCommitFiles.get(fileName);
+            String currentBranchFileUID = currentBranchCommitFiles.get(fileName);
+            String givenBranchFileUID = givenBranchCommitFiles.get(fileName);
+            if (currentBranchFileUID == null && givenBranchFileUID == null) {
+                continue;
+            } else if (currentBranchFileUID == null && isIdenticalFile(splitPointFileUID, givenBranchFileUID)) {
+                continue;
+            } else if (currentBranchFileUID == null && !isIdenticalFile(splitPointFileUID, givenBranchFileUID)) {
+                mergeFileContents(fileName, null, givenBranchFileUID);
+                mergeConflict = true;
+            } else if (givenBranchFileUID == null && isIdenticalFile(splitPointFileUID, currentBranchFileUID)) {
+                rm(fileName);
+            } else if (givenBranchFileUID == null && !isIdenticalFile(splitPointFileUID, currentBranchFileUID)) {
+                mergeFileContents(fileName, currentBranchFileUID, null);
+                mergeConflict = true;
+            } else if (!isIdenticalFile(splitPointFileUID, currentBranchFileUID) && isIdenticalFile(currentBranchFileUID, givenBranchFileUID)) {
+                continue;
+            } else if (!isIdenticalFile(splitPointFileUID, givenBranchFileUID) && isIdenticalFile(splitPointFileUID, currentBranchFileUID)) {
+                checkout(branches.get(branchName).peek(), fileName);
+                stageFileForAddition(fileName, givenBranchFileUID);
+            } else if (!isIdenticalFile(splitPointFileUID, currentBranchFileUID) && isIdenticalFile(splitPointFileUID, givenBranchFileUID)) {
+                continue;
+            } else if (!isIdenticalFile(splitPointFileUID, currentBranchFileUID) && !isIdenticalFile(currentBranchFileUID, givenBranchFileUID)) {
+                mergeFileContents(fileName, currentBranchFileUID, givenBranchFileUID);
+                mergeConflict = true;
+            }
+        }
+        ArrayList<String> newFilesInGivenBranch = new ArrayList<>();
+        for (String fileName : givenBranchCommitFiles.keySet()) {
+            if (!splitPointCommitFiles.containsKey(fileName)) {
+                String currentBranchFileUID = currentBranchCommitFiles.get(fileName);
+                String givenBranchFileUID = givenBranchCommitFiles.get(fileName);
+                if (currentBranchFileUID == null) {
+                    stageFileForAddition(fileName, givenBranchFileUID);
+                    newFilesInGivenBranch.add(fileName);
+                } else if (!isIdenticalFile(givenBranchFileUID, currentBranchFileUID)) {
+                    mergeFileContents(fileName, currentBranchFileUID, givenBranchFileUID);
+                    mergeConflict = true;
+                }
+            }
+        }
+        mergeCommit(branchName);
+        if (!newFilesInGivenBranch.isEmpty()) {
+            for (String fileName : newFilesInGivenBranch) {
+                overwriteCurrentFileVersion(getCurrentCommitTrackedFiles(), fileName);
+            }
+        }
+        if (mergeConflict) {
+            System.out.println("Encountered a merge conflict.");
+        }
     }
 
 }

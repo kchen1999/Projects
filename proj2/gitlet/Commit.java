@@ -35,6 +35,8 @@ public class Commit implements Serializable {
     private String parent1UID;
     /** Mapping of file names to blob references*/
     private HashMap<String, String> trackedFiles;
+    /** Marks a commit that is a split point of two branches*/
+    private boolean isSplitPoint;
     /**
      * Each commit (rectangle) points to some blobs (circles), which contain file contents
      * The commits contain the file names and references to these blobs, as well as a parent link.
@@ -65,6 +67,10 @@ public class Commit implements Serializable {
         }
     }
 
+    public void setSplitPoint() {
+        this.isSplitPoint = true;
+    }
+
     public Commit(String message, String parent) {
         if (message.equals("")) {
             System.out.println("Please enter a commit message.");
@@ -73,6 +79,7 @@ public class Commit implements Serializable {
         this.message = message;
         this.parentUID = parent;
         this.parent1UID = null;
+        this.isSplitPoint = false;
         if (parent == null) {
             this.timestamp = new Date(0);
         } else {
@@ -81,6 +88,18 @@ public class Commit implements Serializable {
         this.trackedFiles = new HashMap<>();
         setCommitUID();
     }
+
+    public Commit(String message, String parent, String parent1) {
+        this.message = message;
+        this.parentUID = parent;
+        this.parent1UID = parent1;
+        this.isSplitPoint = false;
+        this.timestamp = new Date();
+        this.trackedFiles = new HashMap<>();
+        setCommitUID();
+    }
+
+
 
     /*TODO:
        A commit will only update the contents of files it is tracking that have been staged for addition at the
@@ -92,13 +111,16 @@ public class Commit implements Serializable {
      *  If no files have been staged, abort. Print the message No changes added to the commit.
      */
 
-    public void updateFileContents(HashMap<String, String> trackedFiles) {
+    public void updateFileContents(HashMap<String, String> trackedFiles, Boolean isMerge) {
         //this.trackedFiles = trackedFiles; //this is the culprit - trackedFiles is a pointer! 2nd time mistake!
         for (String fileName : trackedFiles.keySet()) {
             this.trackedFiles.put(fileName, trackedFiles.get(fileName));
         }
         TreeMap<String, String> additions = additionsFromFile();
         TreeMap<String, String> removals = removalsFromFile();
+        if (additions.isEmpty() && removals.isEmpty() && isMerge) {
+            return;
+        }
         if (additions.isEmpty() && removals.isEmpty()) {
             System.out.println("No changes added to the commit.");
             System.exit(0);
@@ -145,5 +167,9 @@ public class Commit implements Serializable {
 
     public String getCommitUID() {
         return this.commitUID;
+    }
+
+    public Boolean getIsSplitPoint() {
+        return this.isSplitPoint;
     }
 }
