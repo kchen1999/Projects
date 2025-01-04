@@ -16,22 +16,6 @@ import static gitlet.Utils.*;
     4. Maintaining related sequences of commits called branches
     5. Merging changes made in one branch into another
 
- Important objects in Gitlet include:
-    1. Blobs - saved contents of files. Since Gitlet saves many versions of files, a single file might
-       correspond to multiple blobs: each being tracked in a different commit.
-    2. Trees - directory structures mapping names to references to blobs and other trees (subdirectories).
-    3. Commits - Combinations of log messages, other metadata (commit date, author, etc.), a reference to a tree,
-        and references to parent commits. The repository also maintains a mapping from branch heads to
-        references to commits, so that certain important commits have symbolic names.
-
- Gitlet simplifies from Git still further by:
-    1. Incorporating trees into commits and not dealing with subdirectories
-       (so there will be one “flat” directory of plain files for each repository).
-    2. Limiting ourselves to merges that reference two parents (in real Git, there can be any number of parents.)
-    3. Having our metadata consist only of a timestamp and log message. A commit, therefore, will consist of a
-       log message, timestamp, a mapping of file names to blob references, a parent reference,
-       and (for merges) a second parent reference.
-
  *  @author Kevin
  */
 public class Repository {
