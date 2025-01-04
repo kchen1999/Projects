@@ -8,18 +8,12 @@ import java.util.TreeMap;
 import static gitlet.Utils.*;
 
 /** Represents a gitlet commit object.
- *  TODO: It's a good idea to give a description here of what else this Class
- *  does at a high level.
+ *  Combinations of log messages, other metadata (commit date, author, etc.),
+ *  a reference to a tree, and references to parent commits.
  *
  *  @author Kevin
  */
 public class Commit implements Serializable {
-    /**
-     *
-     * List all instance variables of the Commit class here with a useful
-     * comment above them describing what that variable represents and how that
-     * variable is used. We've provided one example for `message`.
-     */
     /** The hash ID of this commit. */
     private String commitUID;
     /** The message of this Commit. */
@@ -38,11 +32,12 @@ public class Commit implements Serializable {
     public void setCommitUID() {
         if (parentUID == null) {
             this.commitUID = sha1(message, serialize(timestamp), serialize(trackedFiles));
-        }
-        else if (parent1UID == null) {
-            this.commitUID = sha1(message, serialize(timestamp), serialize(trackedFiles), parentUID);
+        } else if (parent1UID == null) {
+            this.commitUID = sha1(message, serialize(timestamp), serialize(trackedFiles),
+                    parentUID);
         } else {
-            this.commitUID = sha1(message, serialize(timestamp), serialize(trackedFiles), parentUID, parent1UID);
+            this.commitUID = sha1(message, serialize(timestamp), serialize(trackedFiles), parentUID,
+                    parent1UID);
         }
     }
 

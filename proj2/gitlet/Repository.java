@@ -6,9 +6,32 @@ import java.util.*;
 import static gitlet.Utils.*;
 
 /** Represents a gitlet repository.
- *  TODO: It's a good idea to give a description here of what else this Class
- *  does at a high level.
- *
+
+ The main functionality that gitlet supports is:
+    1. Saving the contents of entire directories of files - called committing and the saved content
+    themselves are called commits
+    2. Restoring a version of one or more files or entire commits - called checking out those files or
+    that commit
+    3. Viewing the history of your backups - history can be viewed in something called the log
+    4. Maintaining related sequences of commits called branches
+    5. Merging changes made in one branch into another
+
+ Important objects in Gitlet include:
+    1. Blobs - saved contents of files. Since Gitlet saves many versions of files, a single file might
+       correspond to multiple blobs: each being tracked in a different commit.
+    2. Trees - directory structures mapping names to references to blobs and other trees (subdirectories).
+    3. Commits - Combinations of log messages, other metadata (commit date, author, etc.), a reference to a tree,
+        and references to parent commits. The repository also maintains a mapping from branch heads to
+        references to commits, so that certain important commits have symbolic names.
+
+ Gitlet simplifies from Git still further by:
+    1. Incorporating trees into commits and not dealing with subdirectories
+       (so there will be one “flat” directory of plain files for each repository).
+    2. Limiting ourselves to merges that reference two parents (in real Git, there can be any number of parents.)
+    3. Having our metadata consist only of a timestamp and log message. A commit, therefore, will consist of a
+       log message, timestamp, a mapping of file names to blob references, a parent reference,
+       and (for merges) a second parent reference.
+
  *  @author Kevin
  */
 public class Repository {
@@ -222,6 +245,10 @@ public class Repository {
         return getCurrentCommitTrackedFiles().containsKey(fileName);
     }
 
+    /*
+        Set up .gitlet directory, staging area directory and blobs directory.
+        Set up commit prefixes file, blob maps file, additions file, and removals file.
+     */
     public static void setUpPersistence () {
         if (GITLET_DIR.exists()) {
             System.out.println("A Gitlet version-control system already exists in the current directory.");
@@ -243,6 +270,12 @@ public class Repository {
         writeObject(removalsFile, removals);
     }
 
+    /*
+        Creates a new Gitlet version-control system in the current directory.
+        The system will automatically start with one commit; a commit that contains no files
+        and has the commit message initial commit.
+        It will have one branch: master and master will be the current branch.
+     */
     public static void init() {
         setUpPersistence();
         File commitsFile = join(GITLET_DIR, "commits");
@@ -260,6 +293,23 @@ public class Repository {
         writeObject(branchesFile, branches);
         writeObject(currentBranchFile, currentBranch);
     }
+
+    /*
+        Saves a snapshot of tracked files in the current commit and staging area so they can be restored at a
+        later time, creating a new commit.
+
+        By default, each commit’s snapshot of files will be exactly the same as its parent commit’s snapshot of files;
+        it will keep versions of files exactly as they are, and not update them.
+
+        A commit will only update the contents of files it is tracking that have been staged for addition at the time
+        of commit, in which case the commit will now include the version of the file that was staged instead of the
+        version it got from its parent.
+
+        A commit will save and start tracking any files that were staged for addition but weren’t tracked by its parent.
+
+        Finally, files tracked in the current commit may be untracked in the new commit as a result being staged for
+        removal by the rm command
+     */
 
     public static void commit(String message) {
         checkGitletDirIsInitialized();
@@ -289,6 +339,15 @@ public class Repository {
         clearStagingArea();
     }
 
+    /*
+        Adds a copy of the file as it currently exists to the staging area.
+        Staging an already staged file overwrites the previous entry in the staging area
+        with the new contents.
+        If the current working version of the file is identical to the version in the current
+        commit, do not stage it to be added, and remove it from the staging area if it is
+        already there
+     */
+
     public static void add(String fileName) {
         checkGitletDirIsInitialized();
         File file = new File(fileName);
@@ -314,11 +373,17 @@ public class Repository {
             return;
         }
         stageFileForAddition(fileName, blobUID);
-        File fileCopy = join(GITLET_DIR, "blobs", blobUID); //need to make of copy file contents instead of adding file pointer directly!
+        File fileCopy = join(GITLET_DIR, "blobs", blobUID);
         writeContents(fileCopy, readContents(file));
         blobMap.put(blobUID, fileCopy);
         writeObject(blobMapFile, blobMap);
     }
+
+    /*
+        Unstage the file if it is currently staged for addition.
+        If the file is tracked in the current commit, stage it for removal and remove the file from the
+        working directory if the user has not already done so.
+     */
 
     public static void rm(String fileName) {
         checkGitletDirIsInitialized();
@@ -343,13 +408,19 @@ public class Repository {
         System.out.println("===");
         System.out.println("commit " + commitHash);
         if (commit.getParent1UID() != null) {
-            System.out.println("Merge: " + commit.getParentUID().substring(0, 7) + commit.getParent1UID().substring(0, 7));
+            System.out.println("Merge: " + commit.getParentUID().substring(0, 7)
+                    + commit.getParent1UID().substring(0, 7));
         }
         String date = String.format("%1$ta %1$tb %1$te %1$tH:%1$tM:%1$tS %1$tY %1$tz", commit.getTimestamp());
         System.out.println("Date: " + date);
         System.out.println(commit.getMessage());
         System.out.println("");
     }
+
+    /*
+        Starting at the current head commit, display information about each commit backwards along the commit tree
+        until the initial commit, following the first parent commit links, ignoring any second parents found in merge commits.
+     */
 
     public static void log() {
         checkGitletDirIsInitialized();
@@ -362,6 +433,10 @@ public class Repository {
         }
     }
 
+    /*
+        Like log, except displays information about all commits ever made. The order of the commits does not matter.
+     */
+
     public static void globalLog() {
         checkGitletDirIsInitialized();
         commits = commitsFromFile();
@@ -370,6 +445,11 @@ public class Repository {
             printIndividualCommit(commitUID, commit);
         }
     }
+
+    /*
+        Prints out the ids of all commits that have the given commit message, one per line.
+        If there are multiple such commits, it prints the ids out on separate lines.
+     */
 
     public static void find(String message) {
         checkGitletDirIsInitialized();
@@ -398,7 +478,8 @@ public class Repository {
             if (isTrackedByCurrentCommit(fileName) && !isIdenticalFile(getCurrentVersionBlobUID(fileName), blobUID)
                     && !isStagedForAddition(fileName, additions)) {
                 map.put(fileName, "modified");
-            } else if (isStagedForAddition(fileName, additions) && !isIdenticalFile(additions.get(fileName), blobUID)) {
+            } else if (isStagedForAddition(fileName, additions) &&
+                    !isIdenticalFile(additions.get(fileName), blobUID)) {
                 map.put(fileName, "modified");
             }
         }
@@ -427,6 +508,21 @@ public class Repository {
         }
         return list;
     }
+
+    /*
+        Displays what branches currently exist, and marks the current branch with a *.
+        Also displays what files have been staged for addition or removal.
+        A file in the working directory is “modified but not staged” if it is
+
+        - Tracked in the current commit, changed in the working directory, but not staged; or
+        - Staged for addition, but with different contents than in the working directory; or
+        - Staged for addition, but deleted in the working directory; or
+        - Not staged for removal, but tracked in the current commit and deleted from the working directory.
+
+        The final category (“Untracked Files”) is for files present in the working directory but neither staged
+        for addition nor tracked. This includes files that have been staged for removal, but then re-created without
+        Gitlet’s knowledge.
+     */
 
     public static void status() {
         checkGitletDirIsInitialized();
@@ -496,11 +592,23 @@ public class Repository {
         }
     }
 
+    /*
+        Takes the version of the file as it exists in the head commit and puts it in the working directory,
+        overwriting the version of the file that’s already there if there is one.
+        The new version of the file is not staged.
+     */
+
     public static void checkout(String fileName) {
         checkGitletDirIsInitialized();
         Commit headCommit = getHeadCommit();
         overwriteCurrentFileVersion(headCommit.getTrackedFiles(), fileName);
     }
+
+    /*
+        Takes the version of the file as it exists in the commit with the given id, and puts it in the working directory,
+        overwriting the version of the file that’s already there if there is one.
+        The new version of the file is not staged.
+     */
 
     public static void checkout(String commitUID, String fileName) {
         checkGitletDirIsInitialized();
@@ -513,6 +621,16 @@ public class Repository {
         }
         overwriteCurrentFileVersion(commit.getTrackedFiles(), fileName);
     }
+
+    /*
+        Takes all files in the commit at the head of the given branch, and puts them in the working directory, overwriting the
+        versions of the files that are already there if they exist.
+
+        Also, at the end of this command, the given branch will now be considered the current branch (HEAD).
+        Any files that are tracked in the current branch but are not present in the checked-out branch are deleted.
+
+        The staging area is cleared, unless the checked-out branch is the current branch.
+     */
 
     public static void checkoutBranch(String branchName) {
         checkGitletDirIsInitialized();
@@ -538,6 +656,11 @@ public class Repository {
         clearStagingArea();
     }
 
+    /*
+        Creates a new branch with the given name, and points it at the current head commit.
+        This command does not immediately switch to the newly created branch.
+     */
+
     public static void branch(String branchName) {
         checkGitletDirIsInitialized();
         File branchesFile = join(GITLET_DIR, "branches");
@@ -562,6 +685,9 @@ public class Repository {
         writeObject(commitsFile, commits);
     }
 
+    /*
+        Deletes the branch with the given name.
+     */
     public static void rmBranch(String branchName) {
         checkGitletDirIsInitialized();
         branches = branchesFromFile();
@@ -577,6 +703,12 @@ public class Repository {
         branches.remove(branchName);
         writeObject(branchesFile, branches);
     }
+
+    /*
+        Checks out all the files tracked by the given commit.
+        Removes tracked files that are not present in that commit.
+        Also moves the current branch’s head to that commit node.
+     */
 
     public static void reset(String commitUID) {
         checkGitletDirIsInitialized();
@@ -605,6 +737,16 @@ public class Repository {
         writeObject(branchesFile, branches);
         clearStagingArea();
     }
+
+    /*
+        The split point is the latest common ancestor of the current and given branch heads.
+
+        If the split point is the same commit as the given branch, then we do nothing; the merge is complete, and the
+        operation ends with the message Given branch is an ancestor of the current branch.
+
+        If the split point is the current branch, then the effect is to check out the given branch, and the operation
+        ends after printing the message Current branch fast-forwarded.
+     */
 
     private static Commit findSplitPoint(String currentBranch, String givenBranch) {
         branches = branchesFromFile();
@@ -642,11 +784,11 @@ public class Repository {
         file.delete();
         blobMap = blobMapFromFile();
         if (currentBranchFileUID == null) {
-            writeContents(file, "<<<<<<< HEAD\n", "=======\n", readContents(blobMap.get(givenBranchFileUID)),
-                    ">>>>>>>\n");
+            writeContents(file, "<<<<<<< HEAD\n", "=======\n",
+                    readContents(blobMap.get(givenBranchFileUID)), ">>>>>>>\n");
         } else if (givenBranchFileUID == null) {
-            writeContents(file, "<<<<<<< HEAD\n", readContents(blobMap.get(currentBranchFileUID)), "=======\n",
-                    ">>>>>>>\n");
+            writeContents(file, "<<<<<<< HEAD\n", readContents(blobMap.get(currentBranchFileUID)),
+                    "=======\n", ">>>>>>>\n");
         } else {
             writeContents(file, "<<<<<<< HEAD\n", readContents(blobMap.get(currentBranchFileUID)),
                     "=======\n", readContents(blobMap.get(givenBranchFileUID)), ">>>>>>>\n");
@@ -655,14 +797,59 @@ public class Repository {
         stageFileForAddition(fileName, blobUID);
     }
 
+    /*
+        Merges files from the given branch into the current branch.
+
+        1. Any files that have been modified in the given branch since the split point, but not modified in the
+           current branch since the split point should be changed to their versions in the given branch
+           (checked out from the commit at the front of the given branch).
+           These files should then all be automatically staged.
+
+        2. Any files that have been modified in the current branch but not in the given branch since the split point
+           should stay as they are.
+
+        3. Any files that have been modified in both the current and given branch in the same way
+           (i.e., both files now have the same content or were both removed) are left unchanged by the merge.
+
+        4. Any files that were not present at the split point and are present only in the current branch should
+           remain as they are.
+
+        5. Any files that were not present at the split point and are present only in the given branch should
+           be checked out and staged.
+
+        6. Any files present at the split point, unmodified in the current branch, and absent in the given branch
+           should be removed (and untracked).
+
+        7. Any files present at the split point, unmodified in the given branch, and absent in the current branch
+           should remain absent.
+
+        8. Any files modified in different ways in the current and given branches are in conflict.
+          “Modified in different ways” can mean that the contents of both are changed and different from other, or
+          the contents of one are changed and the other file is deleted, or the file was absent at the split point
+          and has different contents in the given and current branches.
+
+          In this case, replace the contents of the conflicted file with:
+          <<<<<<< HEAD
+          contents of file in current branch
+          =======
+          contents of file in given branch
+          >>>>>>>
+
+        Once files have been updated according to the above, and the split point was not the current branch or the
+        given branch, merge automatically commits with the log message
+        Merged [given branch name] into [current branch name].
+
+        Then, if the merge encountered a conflict, print the message Encountered a merge conflict. on the terminal.
+     */
+
     public static void merge(String branchName) {
-        Boolean mergeConflict = false;
         checkGitletDirIsInitialized();
+        Boolean mergeConflict = false;
         branches = branchesFromFile();
         currentBranch = currentBranchFromFile();
         ArrayList<String> untrackedFiles = getUntrackedFiles();
 
-        if(!noFilesStagedForAddition() || !noFilesStagedForRemoval()) {
+        if (!noFilesStagedForAddition() || !noFilesStagedForRemoval()) {
             System.out.println("You have uncommitted changes.");
             System.exit(0);
         } else if (!branches.containsKey(branchName)) {
@@ -696,18 +883,14 @@ public class Repository {
             } else if (givenBranchFileUID == null && !isIdenticalFile(splitPointFileUID, currentBranchFileUID)) {
                 mergeFileContents(fileName, currentBranchFileUID, null);
                 mergeConflict = true;
-            } else if (!isIdenticalFile(splitPointFileUID, currentBranchFileUID) && isIdenticalFile(currentBranchFileUID,
-                    givenBranchFileUID)) {
+            } else if (!isIdenticalFile(splitPointFileUID, currentBranchFileUID) && isIdenticalFile(currentBranchFileUID, givenBranchFileUID)) {
                 continue;
-            } else if (!isIdenticalFile(splitPointFileUID, givenBranchFileUID) && isIdenticalFile(splitPointFileUID,
-                    currentBranchFileUID)) {
+            } else if (!isIdenticalFile(splitPointFileUID, givenBranchFileUID) && isIdenticalFile(splitPointFileUID, currentBranchFileUID)) {
                 checkout(branches.get(branchName).peek(), fileName);
                 stageFileForAddition(fileName, givenBranchFileUID);
-            } else if (!isIdenticalFile(splitPointFileUID, currentBranchFileUID) && isIdenticalFile(splitPointFileUID,
-                    givenBranchFileUID)) {
+            } else if (!isIdenticalFile(splitPointFileUID, currentBranchFileUID) && isIdenticalFile(splitPointFileUID, givenBranchFileUID)) {
                 continue;
-            } else if (!isIdenticalFile(splitPointFileUID, currentBranchFileUID) && !isIdenticalFile(currentBranchFileUID,
-                    givenBranchFileUID)) {
+            } else if (!isIdenticalFile(splitPointFileUID, currentBranchFileUID) && !isIdenticalFile(currentBranchFileUID, givenBranchFileUID)) {
                 mergeFileContents(fileName, currentBranchFileUID, givenBranchFileUID);
                 mergeConflict = true;
             }
@@ -736,5 +919,4 @@ public class Repository {
             System.out.println("Encountered a merge conflict.");
         }
     }
-
 }
