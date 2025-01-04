@@ -265,16 +265,16 @@ public class Repository {
     }
 
     /*
-    * TODO: create initial commit
-    *  Initial message: initial commit
-    *  Timestamp for initial commit: 00:00:00 UTC, Thursday, 1 January 1970
-    * TODO: single branch -> intialize master branch which initially points to this initial commit
-    *  and master will be the current branch - current branch?
-    *  What is UID?
-    *   If there is already a Gitlet version-control system in the current directory, it should abort.
-    *   It should NOT overwrite the existing system with a new one. Should print the error message
-    *   A Gitlet version-control system already exists in the current directory.
-    * */
+     * TODO: create initial commit
+     *  Initial message: initial commit
+     *  Timestamp for initial commit: 00:00:00 UTC, Thursday, 1 January 1970
+     * TODO: single branch -> intialize master branch which initially points to this initial commit
+     *  and master will be the current branch - current branch?
+     *  What is UID?
+     *   If there is already a Gitlet version-control system in the current directory, it should abort.
+     *   It should NOT overwrite the existing system with a new one. Should print the error message
+     *   A Gitlet version-control system already exists in the current directory.
+     * */
     public static void init() {
         setUpPersistence();
         File commitsFile = join(GITLET_DIR, "commits");
@@ -318,29 +318,6 @@ public class Repository {
      *  Every commit must have a non-blank message.
      *  If it doesn’t, print the error message Please enter a commit message.
      */
-    public static void mergeCommit(String givenBranch) {
-        File commitsFile = join(GITLET_DIR, "commits");
-        File branchesFile = join(GITLET_DIR, "branches");
-        commits = commitsFromFile();
-        currentBranch = currentBranchFromFile();
-
-        Commit parentCommit = getHeadCommit();
-        Commit newCommit = new Commit("Merged " + givenBranch + " into " + currentBranch, parentCommit.getCommitUID());
-        newCommit.updateFileContents(parentCommit.getTrackedFiles(), true);
-        commits.put(newCommit.getCommitUID(), newCommit);
-        Stack<String> parentPointers = branches.get(currentBranch);
-        if (!parentCommit.getIsSplitPoint()) {
-            parentPointers.pop();
-        }
-        parentPointers.push(newCommit.getCommitUID());
-        branches.put(currentBranch, parentPointers);
-
-        addCommitPrefix(newCommit.getCommitUID());
-        writeObject(commitsFile, commits);
-        writeObject(branchesFile, branches);
-        clearStagingArea();
-
-    }
 
     public static void commit(String message) {
         checkGitletDirIsInitialized();
@@ -351,7 +328,11 @@ public class Repository {
 
         Commit parentCommit = getHeadCommit();
         Commit newCommit = new Commit(message, parentCommit.getCommitUID());
-        newCommit.updateFileContents(parentCommit.getTrackedFiles(), false);
+        if (message.contains("Merged ") && message.contains("into " + currentBranch)) {
+            newCommit.updateFileContents(parentCommit.getTrackedFiles(), true);
+        } else {
+            newCommit.updateFileContents(parentCommit.getTrackedFiles(), false);
+        }
         commits.put(newCommit.getCommitUID(), newCommit);
         Stack<String> parentPointers = branches.get(currentBranch);
         if (!parentCommit.getIsSplitPoint()) {
@@ -367,11 +348,11 @@ public class Repository {
     }
 
     /*
-    * TODO: Adds a copy of the file as it currently exists to the staging area
-    * TODO: Staging an already-staged file overwrites the previous entry in the staging area with the new contents.
-    * TODO: If the current working version of the file is identical to the version in the current commit,
-    *  do not stage it to be added, and remove it from the staging area if it is already there
-    *  (as can happen when a file is changed, added, and then changed back to it’s original version).
+     * TODO: Adds a copy of the file as it currently exists to the staging area
+     * TODO: Staging an already-staged file overwrites the previous entry in the staging area with the new contents.
+     * TODO: If the current working version of the file is identical to the version in the current commit,
+     *  do not stage it to be added, and remove it from the staging area if it is already there
+     *  (as can happen when a file is changed, added, and then changed back to it’s original version).
      * The file will no longer be staged for removal (see gitlet rm), if it was at the time of the command.
      *  If the file does not exist, print the error message File does not exist. and exit without changing anything.
      */
@@ -465,9 +446,9 @@ public class Repository {
     }
 
     /*
-    * TODO: Like log, except displays information about all commits ever made. The order of the commits does not
-    *  matter. Hint: there is a useful method in gitlet.Utils that will help you iterate over files within a
-    *  directory.
+     * TODO: Like log, except displays information about all commits ever made. The order of the commits does not
+     *  matter. Hint: there is a useful method in gitlet.Utils that will help you iterate over files within a
+     *  directory.
      */
 
     public static void globalLog() {
@@ -480,10 +461,10 @@ public class Repository {
     }
 
     /*
-    * TODO: Prints out the ids of all commits that have the given commit message, one per line. If there are
-    *  multiple such commits, it prints the ids out on separate lines. The commit message is a single operand;
-    *  to indicate a multiword message, put the operand in quotation marks, as for the commit command below.
-    *   Hint: the hint for this command is the same as the one for global-log.
+     * TODO: Prints out the ids of all commits that have the given commit message, one per line. If there are
+     *  multiple such commits, it prints the ids out on separate lines. The commit message is a single operand;
+     *  to indicate a multiword message, put the operand in quotation marks, as for the commit command below.
+     *   Hint: the hint for this command is the same as the one for global-log.
      */
 
     public static void find(String message) {
@@ -493,7 +474,7 @@ public class Repository {
         for (String commitUID : commits.keySet()) {
             Commit commit = commits.get(commitUID);
             if (message.equals(commit.getMessage())) {
-                System.out.println(message);
+                System.out.println(commitUID);
                 found = true;
             }
         }
@@ -617,7 +598,7 @@ public class Repository {
     }
 
     private static void removeTrackedFilesNotInCommit(HashMap<String, String> currentCommitTrackedFiles,
-                                                         HashMap<String, String> givenCommitTrackedFiles) {
+                                                      HashMap<String, String> givenCommitTrackedFiles) {
         for (String fileName : currentCommitTrackedFiles.keySet()) {
             if (!givenCommitTrackedFiles.containsKey(fileName)) {
                 File f = new File(fileName);
@@ -696,10 +677,10 @@ public class Repository {
     }
 
     /*
-    * TODO: Creates a new branch with the given name, and points it at the current head commit.
-    *  A branch is nothing more than a name for a reference (a SHA-1 identifier) to a commit node.
-    *  Before you ever call branch, your code should be running with a default branch called “master”.
-    *  If a branch with the given name already exists, print the error message A branch with that name already exists.
+     * TODO: Creates a new branch with the given name, and points it at the current head commit.
+     *  A branch is nothing more than a name for a reference (a SHA-1 identifier) to a commit node.
+     *  Before you ever call branch, your code should be running with a default branch called “master”.
+     *  If a branch with the given name already exists, print the error message A branch with that name already exists.
      */
     public static void branch(String branchName) {
         checkGitletDirIsInitialized();
@@ -723,11 +704,11 @@ public class Repository {
     }
 
     /*
-    * TODO: Deletes the branch with the given name. This only means to delete the pointer associated with the
-    *  branch; it does not mean to delete all commits that were created under the branch, or anything like that.
-    *  If a branch with the given name does not exist, aborts. Print the error message A branch with that name
-    *  does not exist. If you try to remove the branch you’re currently on, aborts, printing the error message
-    *  Cannot remove the current branch.
+     * TODO: Deletes the branch with the given name. This only means to delete the pointer associated with the
+     *  branch; it does not mean to delete all commits that were created under the branch, or anything like that.
+     *  If a branch with the given name does not exist, aborts. Print the error message A branch with that name
+     *  does not exist. If you try to remove the branch you’re currently on, aborts, printing the error message
+     *  Cannot remove the current branch.
      */
 
     public static void rmBranch(String branchName) {
@@ -747,12 +728,12 @@ public class Repository {
     }
 
     /*
-    * TODO: Checks out all the files tracked by the given commit. Removes tracked files that are not present in
-    *  that commit. Also moves the current branch’s head to that commit node. See the intro for an example of
-    *  what happens to the head pointer after using reset. The [commit id] may be abbreviated as for checkout.
-    *  The staging area is cleared. The command is essentially checkout of an arbitrary commit that also changes
-    *  the current branch head
-    *
+     * TODO: Checks out all the files tracked by the given commit. Removes tracked files that are not present in
+     *  that commit. Also moves the current branch’s head to that commit node. See the intro for an example of
+     *  what happens to the head pointer after using reset. The [commit id] may be abbreviated as for checkout.
+     *  The staging area is cleared. The command is essentially checkout of an arbitrary commit that also changes
+     *  the current branch head
+     *
      */
     public static void reset(String commitUID) {
         checkGitletDirIsInitialized();
@@ -953,7 +934,7 @@ public class Repository {
                 }
             }
         }
-        mergeCommit(branchName);
+        commit("Merged " + branchName + " into " + currentBranch);
         if (!newFilesInGivenBranch.isEmpty()) {
             for (String fileName : newFilesInGivenBranch) {
                 overwriteCurrentFileVersion(getCurrentCommitTrackedFiles(), fileName);
