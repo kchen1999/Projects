@@ -1,7 +1,5 @@
 package gitlet;
 
-// TODO: any imports you need here
-
 import java.io.File;
 import java.io.Serializable;
 import java.util.Date;
@@ -17,7 +15,6 @@ import static gitlet.Utils.*;
  */
 public class Commit implements Serializable {
     /**
-     * TODO: add instance variables here.
      *
      * List all instance variables of the Commit class here with a useful
      * comment above them describing what that variable represents and how that
@@ -37,24 +34,6 @@ public class Commit implements Serializable {
     private HashMap<String, String> trackedFiles;
     /** Marks a commit that is a split point of two branches*/
     private boolean isSplitPoint;
-    /**
-     * Each commit (rectangle) points to some blobs (circles), which contain file contents
-     * The commits contain the file names and references to these blobs, as well as a parent link.
-     * These references, depicted as arrows, are represented in the .gitlet directory using their SHA-1 hash values
-     * (the small hexadecimal numerals above the commits and below the blobs).
-     * Your commit class will somehow store all of the information that this diagram shows:
-     * a careful selection of internal data structures will make the implementation easier or harder
-     * */
-    /** a mapping of file names to blob references, a parent reference, and (for merges) a second parent reference
-     * every commit in our case–has a unique integer id that serves as a reference to the object
-     * In the case of commits, it means the same metadata, the same mapping of names to references,
-     * and the same parent reference.
-     * Include all metadata and references when hashing a commit.
-     * Distinguishing somehow between hashes for commits and hashes for blobs.
-     * A good way of doing this involves a well-thought out directory structure within the .gitlet directory.
-     * Another way to do so is to hash in an extra word for each object that has one value for blobs
-     * and another for commits.
-     * */
 
     public void setCommitUID() {
         if (parentUID == null) {
@@ -99,20 +78,7 @@ public class Commit implements Serializable {
         setCommitUID();
     }
 
-
-
-    /*TODO:
-       A commit will only update the contents of files it is tracking that have been staged for addition at the
-     *  time of commit, in which case the commit will now include the version of the file that was staged
-     *  instead of the version it got from its parent.
-     *  A commit will save and start tracking any files that were staged for addition but weren’t tracked by its parent.
-     *  Finally, files tracked in the current commit may be untracked in the new commit as a result being
-     *  staged for removal by the rm command (below).
-     *  If no files have been staged, abort. Print the message No changes added to the commit.
-     */
-
     public void updateFileContents(HashMap<String, String> trackedFiles, Boolean isMerge) {
-        //this.trackedFiles = trackedFiles; //this is the culprit - trackedFiles is a pointer! 2nd time mistake!
         for (String fileName : trackedFiles.keySet()) {
             this.trackedFiles.put(fileName, trackedFiles.get(fileName));
         }
