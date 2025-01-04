@@ -1,0 +1,87 @@
+> init
+<<<
++ goodbye.txt wug.txt
+> add goodbye.txt
+<<<
++ wug3.txt wug.txt
+> add wug3.txt
+<<<
++ junk.txt wug.txt
+> add junk.txt
+<<<
+> commit "added goodbye.txt"
+<<<
++ wug.txt wug.txt
+> add wug.txt
+<<<
++ wug2.txt wug.txt
+> add wug2.txt
+<<<
+> rm goodbye.txt
+<<<
+> branch other-branch
+<<<
+- junk.txt
++ random.stuff wug.txt
++ wug3.txt notwug.txt
++ wug4.txt wug.txt
+> add wug4.txt
+<<<
+- wug4.txt
++ wug5.txt wug.txt
+> add wug5.txt
+<<<
++ wug5.txt notwug.txt
+> status
+=== Branches ===
+*master
+other-branch
+
+=== Staged Files ===
+wug.txt
+wug2.txt
+wug4.txt
+wug5.txt
+
+=== Removed Files ===
+goodbye.txt
+
+=== Modifications Not Staged For Commit ===
+junk.txt (deleted)
+wug3.txt (modified)
+wug4.txt (deleted)
+wug5.txt (modified)
+
+=== Untracked Files ===
+random.stuff
+<<<
+> rm-branch random-branch
+A branch with that name does not exist.
+<<<
+> rm-branch master
+Cannot remove the current branch.
+<<<
+> rm-branch other-branch
+<<<
+> status
+=== Branches ===
+*master
+
+=== Staged Files ===
+wug.txt
+wug2.txt
+wug4.txt
+wug5.txt
+
+=== Removed Files ===
+goodbye.txt
+
+=== Modifications Not Staged For Commit ===
+junk.txt (deleted)
+wug3.txt (modified)
+wug4.txt (deleted)
+wug5.txt (modified)
+
+=== Untracked Files ===
+random.stuff
+<<<

@@ -1,0 +1,33 @@
+I merge-setup.inc
+I definitions.inc
+> checkout other-branch
+<<<
++ file1.txt notwug.txt
+> add file1.txt
+<<<
+> commit "updated other branch"
+<<<
+# todo: check no merge conflict case
+> merge random-branch
+A branch with that name does not exist.
+<<<
+> checkout master
+<<<
+> merge other-branch
+Current branch fast-forwarded.
+<<<
+= file1.txt notwug.txt
+> log
+===
+${COMMIT_HEAD}
+updated other branch
+
+===
+${COMMIT_HEAD}
+setup files
+
+===
+${COMMIT_HEAD}
+initial commit
+
+<<<*

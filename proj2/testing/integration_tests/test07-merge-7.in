@@ -1,0 +1,37 @@
+I merge-setup.inc
+I definitions.inc
+> checkout other-branch
+<<<
++ file1.txt notwug.txt
+> add file1.txt
+<<<
+> commit "updated other branch"
+<<<
+> checkout master
+<<<
+E file7.txt
+> rm file7.txt
+<<<
+> commit "updated current branch"
+<<<
+> merge other-branch
+<<<
+* file7.txt
+> log
+===
+${COMMIT_HEAD}
+Merged other-branch into master.
+
+===
+${COMMIT_HEAD}
+updated current branch
+
+===
+${COMMIT_HEAD}
+setup files
+
+===
+${COMMIT_HEAD}
+initial commit
+
+<<<*

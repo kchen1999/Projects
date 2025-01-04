@@ -1,0 +1,65 @@
+I merge-setup.inc
+I definitions.inc
+> checkout other-branch
+<<<
++ file8-1.txt notwug.txt
+> add file8-1.txt
+<<<
++ file8-2.txt notwug.txt
+> add file8-2.txt
+<<<
+> rm file8-3.txt
+<<<
++ file8-4.txt notwug.txt
+> add file8-4.txt
+<<<
++ file8-5.txt wug.txt
+> add file8-5.txt
+<<<
+> commit "updated other branch"
+<<<
+> checkout master
+<<<
++ file8-1.txt bigwug.txt
+> add file8-1.txt
+<<<
+> rm file8-2.txt
+<<<
++ file8-3.txt bigwug.txt
+> add file8-3.txt
+<<<
++ file8-4.txt bigwug.txt
+> add file8-4.txt
+<<<
++ file8-5.txt wug.txt
+> add file8-5.txt
+<<<
+> commit "updated current branch"
+<<<
+> merge other-branch
+Encountered a merge conflict.
+<<<
+= file8-1.txt expected-8-1-test-result
+= file8-2.txt expected-8-2-test-result
+= file8-3.txt expected-8-3-test-result
+= file8-4.txt expected-8-1-test-result
+E file8-5.txt
+= file8-5.txt wug.txt
+> log
+===
+${COMMIT_HEAD}
+Merged other-branch into master.
+
+===
+${COMMIT_HEAD}
+updated current branch
+
+===
+${COMMIT_HEAD}
+setup files
+
+===
+${COMMIT_HEAD}
+initial commit
+
+<<<*

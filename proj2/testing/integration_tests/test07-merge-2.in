@@ -1,0 +1,55 @@
+I merge-setup.inc
+I definitions.inc
+> checkout other-branch
+<<<
++ file1.txt notwug.txt
+> add file1.txt
+<<<
+> commit "updated other branch"
+<<<
+> checkout master
+<<<
++ file2.txt notwug.txt
+> add file2.txt
+<<<
+> commit "updated current branch"
+<<<
++ uncommittedchanges.txt wug.txt
+> add uncommittedchanges.txt
+<<<
+> merge other-branch
+You have uncommitted changes.
+<<<
+> rm uncommittedchanges.txt
+<<<
+# todo: check no merge conflict case
+> merge master
+Cannot merge a branch with itself.
+<<<
++ untracked.txt wug.txt
+> merge other-branch
+There is an untracked file in the way; delete it, or add and commit it first.
+<<<
+- untracked.txt
+- uncommittedchanges.txt
+> merge other-branch
+<<<
+= file2.txt notwug.txt
+> log
+===
+${COMMIT_HEAD}
+Merged other-branch into master.
+
+===
+${COMMIT_HEAD}
+updated current branch
+
+===
+${COMMIT_HEAD}
+setup files
+
+===
+${COMMIT_HEAD}
+initial commit
+
+<<<*

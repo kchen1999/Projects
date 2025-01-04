@@ -1,0 +1,57 @@
+I definitions.inc
+> init
+<<<
++ goodbye.txt wug.txt
+> add goodbye.txt
+<<<
++ wug3.txt wug.txt
+> add wug3.txt
+<<<
++ junk.txt wug.txt
+> add junk.txt
+<<<
+> commit "added goodbye.txt, wug3.txt and junk.txt"
+<<<
++ goodbye.txt notwug.txt
+> add goodbye.txt
+<<<
++ robot.txt wug.txt
+> add robot.txt
+<<<
+> commit "modified goodbye.txt and added robot.txt"
+<<<
+> log
+===
+${COMMIT_HEAD}
+modified goodbye.txt and added robot.txt
+
+===
+${COMMIT_HEAD}
+added goodbye.txt, wug3.txt and junk.txt
+
+===
+${COMMIT_HEAD}
+initial commit
+
+<<<*
+# UID of current commit
+D UID2 "${1}"
+# UID of first commit after initial commit
+D UID1 "${2}"
+= goodbye.txt notwug.txt
+E robot.txt
+> reset ${UID1}
+<<<
+= goodbye.txt wug.txt
+* robot.txt
+> branch other-branch
+<<<
+> checkout other-branch
+<<<
+> checkout master
+<<<
+= goodbye.txt wug.txt
+* robot.txt
+
+
+

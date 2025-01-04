@@ -1,0 +1,12 @@
+#Check removal works if file is currently staged for addition
+> init
+<<<
++ wug.txt wug.txt
+> add wug.txt
+<<<
+> rm wug.txt
+<<<
+> commit "version 1 of wug.txt"
+No changes added to the commit.
+<<<
+E wug.txt

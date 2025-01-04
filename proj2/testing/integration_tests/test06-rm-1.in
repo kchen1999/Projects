@@ -1,0 +1,6 @@
+#Check removal works if file is tracked in the current commit
+I setup.inc
+E wug.txt
+> rm wug.txt
+<<<
+* wug.txt
