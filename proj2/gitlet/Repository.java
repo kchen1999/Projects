@@ -27,19 +27,19 @@ public class Repository {
     /** The .gitlet directory. */
     public static final File GITLET_DIR = join(CWD, ".gitlet");
     /** The commit tree - mapping of commit references to their commit. */
-    public static HashMap<String, Commit> commits = new HashMap<>();
+    private static HashMap<String, Commit> commits = new HashMap<>();
     /** The abbreviated commit tree - mapping of 6 digit commit abbreviations to their commit reference*/
-    public static HashMap<String, ArrayList<String>> commitPrefixes= new HashMap<>();
+    private static HashMap<String, ArrayList<String>> commitPrefixes= new HashMap<>();
     /** Mapping of branch names to references to commits */
-    public static TreeMap<String, Stack<String>> branches = new TreeMap<>();
+    private static TreeMap<String, Stack<String>> branches = new TreeMap<>();
     /** Staging area (files staged for addition): Mapping of file names to blob references */
-    public static TreeMap<String, String> additions = new TreeMap<>();
+    private static TreeMap<String, String> additions = new TreeMap<>();
     /** Staging area (files staged for removal): Mapping of file names to blob references */
-    public static TreeMap<String, String> removals = new TreeMap<>();
+    private static TreeMap<String, String> removals = new TreeMap<>();
     /** Mapping of blob references to file contents **/
-    public static HashMap<String, File> blobMap = new HashMap<>();
+    private static HashMap<String, File> blobMap = new HashMap<>();
     /** The current branch */
-    public static String currentBranch;
+    private static String currentBranch;
 
     /**
      * Does required file system operations to set up for persistence
@@ -335,7 +335,7 @@ public class Repository {
         }
         commits.put(newCommit.getCommitUID(), newCommit);
         Stack<String> parentPointers = branches.get(currentBranch);
-        if (!parentCommit.getIsSplitPoint()) {
+        if (!parentCommit.isSplitPoint()) {
             parentPointers.pop();
         }
         parentPointers.push(newCommit.getCommitUID());
@@ -687,18 +687,21 @@ public class Repository {
         File branchesFile = join(GITLET_DIR, "branches");
         File commitsFile = join(GITLET_DIR, "commits");
         branches = branchesFromFile();
+        currentBranch = currentBranchFromFile();
+        commits = commitsFromFile();
         if (branches.containsKey(branchName)) {
             System.out.println("A branch with that name already exists.");
             System.exit(0);
         }
-        commits = commitsFromFile();
         Commit currentCommit = getHeadCommit();
         currentCommit.setSplitPoint();
         commits.put(getHeadCommitId(), currentCommit);
-        String currentCommitID = getHeadCommitId();
-        Stack<String> parentPointers = new Stack<>();
-        parentPointers.push(currentCommitID);
-        branches.put(branchName, parentPointers);
+        Stack<String> newBranchParentPointers = new Stack<>();
+        Stack<String> currentBranchParentPointers = branches.get(currentBranch);
+        for (String commitUID : currentBranchParentPointers) {
+            newBranchParentPointers.push(commitUID);
+        }
+        branches.put(branchName, newBranchParentPointers);
         writeObject(branchesFile, branches);
         writeObject(commitsFile, commits);
     }
@@ -809,17 +812,21 @@ public class Repository {
     }
 
     private static void mergeFileContents(String fileName, String currentBranchFileUID, String givenBranchFileUID) {
-        File f = join(CWD, fileName);
-        f.delete();
+        File file = join(CWD, fileName);
+        file.delete();
         blobMap = blobMapFromFile();
         if (currentBranchFileUID == null) {
-            writeContents(f, "<<<<<<< HEAD\n", "=======\n", readContents(blobMap.get(givenBranchFileUID)), ">>>>>>>");
+            writeContents(file, "<<<<<<< HEAD\n", "=======\n", readContents(blobMap.get(givenBranchFileUID)),
+                    ">>>>>>>");
         } else if (givenBranchFileUID == null) {
-            writeContents(f, "<<<<<<< HEAD\n", readContents(blobMap.get(currentBranchFileUID)), "=======\n", ">>>>>>>");
+            writeContents(file, "<<<<<<< HEAD\n", readContents(blobMap.get(currentBranchFileUID)), "=======\n",
+                    ">>>>>>>");
         } else {
-            writeContents(f, "<<<<<<< HEAD\n", readContents(blobMap.get(currentBranchFileUID)),
+            writeContents(file, "<<<<<<< HEAD\n", readContents(blobMap.get(currentBranchFileUID)),
                     "=======\n", readContents(blobMap.get(givenBranchFileUID)), ">>>>>>>");
         }
+        String blobUID = sha1(readContents(file));
+        stageFileForAddition(fileName, blobUID);
     }
 
     /*
@@ -908,14 +915,18 @@ public class Repository {
             } else if (givenBranchFileUID == null && !isIdenticalFile(splitPointFileUID, currentBranchFileUID)) {
                 mergeFileContents(fileName, currentBranchFileUID, null);
                 mergeConflict = true;
-            } else if (!isIdenticalFile(splitPointFileUID, currentBranchFileUID) && isIdenticalFile(currentBranchFileUID, givenBranchFileUID)) {
+            } else if (!isIdenticalFile(splitPointFileUID, currentBranchFileUID) && isIdenticalFile(currentBranchFileUID,
+                    givenBranchFileUID)) {
                 continue;
-            } else if (!isIdenticalFile(splitPointFileUID, givenBranchFileUID) && isIdenticalFile(splitPointFileUID, currentBranchFileUID)) {
+            } else if (!isIdenticalFile(splitPointFileUID, givenBranchFileUID) && isIdenticalFile(splitPointFileUID,
+                    currentBranchFileUID)) {
                 checkout(branches.get(branchName).peek(), fileName);
                 stageFileForAddition(fileName, givenBranchFileUID);
-            } else if (!isIdenticalFile(splitPointFileUID, currentBranchFileUID) && isIdenticalFile(splitPointFileUID, givenBranchFileUID)) {
+            } else if (!isIdenticalFile(splitPointFileUID, currentBranchFileUID) && isIdenticalFile(splitPointFileUID,
+                    givenBranchFileUID)) {
                 continue;
-            } else if (!isIdenticalFile(splitPointFileUID, currentBranchFileUID) && !isIdenticalFile(currentBranchFileUID, givenBranchFileUID)) {
+            } else if (!isIdenticalFile(splitPointFileUID, currentBranchFileUID) && !isIdenticalFile(currentBranchFileUID,
+                    givenBranchFileUID)) {
                 mergeFileContents(fileName, currentBranchFileUID, givenBranchFileUID);
                 mergeConflict = true;
             }
@@ -934,7 +945,7 @@ public class Repository {
                 }
             }
         }
-        commit("Merged " + branchName + " into " + currentBranch);
+        commit("Merged " + branchName + " into " + currentBranch + ".");
         if (!newFilesInGivenBranch.isEmpty()) {
             for (String fileName : newFilesInGivenBranch) {
                 overwriteCurrentFileVersion(getCurrentCommitTrackedFiles(), fileName);

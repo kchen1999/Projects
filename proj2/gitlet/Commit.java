@@ -169,7 +169,7 @@ public class Commit implements Serializable {
         return this.commitUID;
     }
 
-    public Boolean getIsSplitPoint() {
+    public Boolean isSplitPoint() {
         return this.isSplitPoint;
     }
 }
