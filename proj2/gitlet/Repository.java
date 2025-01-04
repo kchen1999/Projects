@@ -817,13 +817,13 @@ public class Repository {
         blobMap = blobMapFromFile();
         if (currentBranchFileUID == null) {
             writeContents(file, "<<<<<<< HEAD\n", "=======\n", readContents(blobMap.get(givenBranchFileUID)),
-                    ">>>>>>>");
+                    ">>>>>>>\n");
         } else if (givenBranchFileUID == null) {
             writeContents(file, "<<<<<<< HEAD\n", readContents(blobMap.get(currentBranchFileUID)), "=======\n",
-                    ">>>>>>>");
+                    ">>>>>>>\n");
         } else {
             writeContents(file, "<<<<<<< HEAD\n", readContents(blobMap.get(currentBranchFileUID)),
-                    "=======\n", readContents(blobMap.get(givenBranchFileUID)), ">>>>>>>");
+                    "=======\n", readContents(blobMap.get(givenBranchFileUID)), ">>>>>>>\n");
         }
         String blobUID = sha1(readContents(file));
         stageFileForAddition(fileName, blobUID);
