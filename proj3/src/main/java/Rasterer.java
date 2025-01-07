@@ -8,9 +8,21 @@ import java.util.Map;
  * not draw the output correctly.
  */
 public class Rasterer {
+    private double[] lonDPPImageDepths;
+    private static final int N_DEPTH_LEVELS = 8;
+    private int depth;
+    private double numOfTilesAcrossDepth;
 
     public Rasterer() {
-      //TODO
+        lonDPPImageDepths = new double[N_DEPTH_LEVELS];
+        double lrlon = MapServer.ROOT_LRLON;
+        double ullon = MapServer.ROOT_ULLON;
+        for (int i = 0; i < N_DEPTH_LEVELS; i++) {
+            lonDPPImageDepths[i] = calculateLonDPP(lrlon, ullon, MapServer.TILE_SIZE);
+            lrlon = lrlon - (lrlon - ullon) / 2 ;
+        }
+        depth = N_DEPTH_LEVELS - 1;
+        numOfTilesAcrossDepth = Math.pow(2, depth);
     }
 
     /**
@@ -56,6 +68,17 @@ public class Rasterer {
      */
     private double calculateLonDPP(double lrlon, double ullon, double w) {
         return (lrlon - ullon) / w;
+    }
+
+    private void initializeDepthValues(double lonDPP) {
+        depth = N_DEPTH_LEVELS - 1;
+        for (int i = 0; i < N_DEPTH_LEVELS; i++) {
+            if (lonDPPImageDepths[i] <= lonDPP) {
+                depth = i;
+                break;
+            }
+        }
+        numOfTilesAcrossDepth = Math.pow(2, depth);
     }
 
     /*
