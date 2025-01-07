@@ -81,6 +81,48 @@ public class Rasterer {
         numOfTilesAcrossDepth = Math.pow(2, depth);
     }
 
+    private double calculateXDistBetweenTiles() {
+        return (MapServer.ROOT_LRLON - MapServer.ROOT_ULLON) / numOfTilesAcrossDepth;
+    }
+
+    private double calculateYDistBetweenTiles() {
+        return (MapServer.ROOT_ULLAT - MapServer.ROOT_LRLAT) / numOfTilesAcrossDepth;
+    }
+
+    private int computeRasterUllonXCoord(double queryBoxUllon) {
+        double xDistBetweenTiles = calculateXDistBetweenTiles();
+        if (queryBoxUllon < MapServer.ROOT_ULLON) {
+            return 0;
+        }
+        return (int) ((queryBoxUllon - MapServer.ROOT_ULLON) / xDistBetweenTiles);
+    }
+
+    private int computeRasterUllatYCoord(double queryBoxUllat) {
+        double yDistBetweenTiles = calculateYDistBetweenTiles();
+        if (queryBoxUllat > MapServer.ROOT_ULLAT) {
+            return 0;
+        }
+        return (int) ((MapServer.ROOT_ULLAT - queryBoxUllat) / yDistBetweenTiles);
+    }
+
+    private int computeRasterLrlonXCoord(double queryBoxLrlon) {
+        double xDistBetweenTiles = calculateXDistBetweenTiles();
+        double coordNum = (queryBoxLrlon - MapServer.ROOT_ULLON) / xDistBetweenTiles;
+        if (coordNum > numOfTilesAcrossDepth) {
+            return (int) numOfTilesAcrossDepth - 1;
+        }
+        return (int) coordNum;
+    }
+
+    private int computeRasterLrlatYCoord(double queryBoxLrlat) {
+        double yDistBetweenTiles = calculateYDistBetweenTiles();
+        double coordNum = (MapServer.ROOT_ULLAT - queryBoxLrlat) / yDistBetweenTiles;
+        if (coordNum > numOfTilesAcrossDepth) {
+            return (int) numOfTilesAcrossDepth - 1;
+        }
+        return (int) coordNum;
+    }
+
     /*
         The images that you return as a String[][] when rastering must be those that:
         Include any region of the query box.
@@ -91,6 +133,11 @@ public class Rasterer {
     public Map<String, Object> getMapRaster(Map<String, Double> params) {
         Map<String, Object> results = new HashMap<>();
         double queryBoxLonDPP = calculateLonDPP(params.get("lrlon"), params.get("ullon"), params.get("w"));
+        initializeDepthValues(queryBoxLonDPP);
+        int rasterUllonXCoord = computeRasterUllonXCoord(params.get("ullon"));
+        int rasterUllatYCoord = computeRasterUllatYCoord(params.get("ullat"));
+        int rasterLrlonXCoord = computeRasterLrlonXCoord(params.get("lrlon"));
+        int rasterLrlatYCoord = computeRasterLrlatYCoord(params.get("lrlat"));
         return results;
     }
 }
