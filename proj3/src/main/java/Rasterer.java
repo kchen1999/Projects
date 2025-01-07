@@ -8,7 +8,7 @@ import java.util.Map;
  * not draw the output correctly.
  */
 public class Rasterer {
-    
+
     public Rasterer() {
       //TODO
     }
@@ -42,6 +42,22 @@ public class Rasterer {
      *                    forget to set this to true on success! <br>
      */
 
+    // Longitude is x coordinate, latitude is y coordinate
+    // d0 - 1
+    // d1 - 2
+    // d2 - 4
+    // d3 - 8
+    // d4 - 16
+    // d5 - 32
+    // d6 - 64
+    // d7 - 128
+    /*
+        Calculates longitudinal distance per pixel
+     */
+    private double calculateLonDPP(double lrlon, double ullon, double w) {
+        return (lrlon - ullon) / w;
+    }
+
     /*
         The images that you return as a String[][] when rastering must be those that:
         Include any region of the query box.
@@ -51,6 +67,7 @@ public class Rasterer {
      */
     public Map<String, Object> getMapRaster(Map<String, Double> params) {
         Map<String, Object> results = new HashMap<>();
+        double queryBoxLonDPP = calculateLonDPP(params.get("lrlon"), params.get("ullon"), params.get("w"));
         return results;
     }
 }
