@@ -123,6 +123,20 @@ public class Rasterer {
         return (int) coordNum;
     }
 
+
+    private String[][] computeRenderGrid(int rasterUllonXCoord, int rasterUllatYCoord,
+                                         int rasterLrlonXCoord, int rasterLrlatYCoord) {
+        int nRows = rasterLrlatYCoord - rasterUllatYCoord + 1;
+        int nCols = rasterLrlonXCoord - rasterUllonXCoord + 1;
+        String[][] renderGrid = new String[nRows][nCols];
+        for (int i = 0; i < nRows; i++) {
+            for (int j = 0; j < nCols; j++) {
+                renderGrid[i][j] = "d" + depth + "_x" + (j + rasterUllonXCoord) + "_y" + (i + rasterUllatYCoord) + ".png";
+            }
+        }
+        return renderGrid;
+    }
+
     /*
         The images that you return as a String[][] when rastering must be those that:
         Include any region of the query box.
@@ -131,13 +145,15 @@ public class Rasterer {
         files, you should use the lowest LonDPP available instead (i.e. depth 7 images).
      */
     public Map<String, Object> getMapRaster(Map<String, Double> params) {
-        Map<String, Object> results = new HashMap<>();
         double queryBoxLonDPP = calculateLonDPP(params.get("lrlon"), params.get("ullon"), params.get("w"));
         initializeDepthValues(queryBoxLonDPP);
         int rasterUllonXCoord = computeRasterUllonXCoord(params.get("ullon"));
         int rasterUllatYCoord = computeRasterUllatYCoord(params.get("ullat"));
         int rasterLrlonXCoord = computeRasterLrlonXCoord(params.get("lrlon"));
         int rasterLrlatYCoord = computeRasterLrlatYCoord(params.get("lrlat"));
+
+        Map<String, Object> results = new HashMap<>();
+        results.put("render_grid" , computeRenderGrid(rasterUllonXCoord, rasterUllatYCoord, rasterLrlonXCoord, rasterLrlatYCoord));
         return results;
     }
 }
