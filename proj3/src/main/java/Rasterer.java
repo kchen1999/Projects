@@ -137,6 +137,26 @@ public class Rasterer {
         return renderGrid;
     }
 
+    private double computeRasterUllon(int rasterUllonXCoord) {
+        double xDistBetweenTiles = calculateXDistBetweenTiles();
+        return MapServer.ROOT_ULLON + rasterUllonXCoord * xDistBetweenTiles;
+    }
+
+    private double computeRasterUllat(double rasterUllatYCoord) {
+        double yDistBetweenTiles = calculateYDistBetweenTiles();
+        return MapServer.ROOT_ULLAT - rasterUllatYCoord * yDistBetweenTiles;
+    }
+
+    private double computeRasterLrlon(double rasterLrlonXCoord) {
+        double xDistBetweenTiles = calculateXDistBetweenTiles();
+        return MapServer.ROOT_ULLON + (rasterLrlonXCoord + 1) * xDistBetweenTiles;
+    }
+
+    private double computeRasterLrlat(double rasterLrlatYCoord) {
+        double yDistBetweenTiles = calculateYDistBetweenTiles();
+        return MapServer.ROOT_ULLAT - (rasterLrlatYCoord + 1) * yDistBetweenTiles;
+    }
+
     /*
         The images that you return as a String[][] when rastering must be those that:
         Include any region of the query box.
@@ -154,6 +174,12 @@ public class Rasterer {
 
         Map<String, Object> results = new HashMap<>();
         results.put("render_grid" , computeRenderGrid(rasterUllonXCoord, rasterUllatYCoord, rasterLrlonXCoord, rasterLrlatYCoord));
+        results.put("raster_ul_lon", computeRasterUllon(rasterUllonXCoord));
+        results.put("raster_ul_lat", computeRasterUllat(rasterUllatYCoord));
+        results.put("raster_lr_lon", computeRasterLrlon(rasterLrlonXCoord));
+        results.put("raster_lr_lat", computeRasterLrlat(rasterLrlatYCoord));
+        results.put("depth", depth);
+        results.put("query_success", true);
         return results;
     }
 }
